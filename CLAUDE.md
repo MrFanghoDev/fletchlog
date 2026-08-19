@@ -70,11 +70,26 @@ pas la reperdre :
 
 - Pas de backend, pas de dépendance Python -- ce dépôt n'a pas vocation à
   avoir de `.venv`/`pyproject.toml` comme ses trois frères.
-- Tester réellement en conditions réelles est *a priori* possible depuis
-  cet environnement de dev lui-même (tourne sur un téléphone Android via
-  Acode) -- vraie caméra, vrai GPS, contrairement aux GUI desktop des
-  deux autres projets qui nécessitent Xvfb en simulation. À confirmer
-  concrètement à la première occasion plutôt que supposé d'avance.
+- **Vérification réelle (confirmé issue #1, 2026-08-19)** : `chromium` +
+  `chromedriver` sont installés dans cet environnement -- Selenium (déjà
+  utilisé côté FletchScore pour ses pages web, voir son CLAUDE.md)
+  permet de vraiment cliquer les boutons, vérifier le `data-theme`,
+  `localStorage`, et l'état du service worker
+  (`navigator.serviceWorker.getRegistrations()`), pas seulement relire
+  le code. Binaires à passer explicitement à Selenium
+  (`options.binary_location = "/usr/bin/chromium"`,
+  `Service("/usr/bin/chromedriver")`) -- `webdriver.Chrome()` seul
+  échoue ici (`Unsupported platform/architecture: linux/aarch64`,
+  le "Selenium Manager" intégré ne connaît pas cette plateforme).
+  **Nuance à garder en tête** : ça reste un navigateur headless
+  automatisé, pas un vrai téléphone -- l'installabilité PWA réelle
+  ("Ajouter à l'écran d'accueil", heuristiques internes de Chrome) n'est
+  pas vérifiable de cette façon, seulement le manifest/service worker/
+  comportement offline. Non encore testé sur un vrai appareil Android.
+- `selenium` n'est pas dans les dépendances du projet (pas de
+  `pyproject.toml` ici) -- installé au besoin dans un des `.venv`
+  partagés de la machine (ex. `/home/claude/.venv`) uniquement pour la
+  vérification, jamais comme dépendance de l'appli elle-même.
 
 ## Pas encore tranché
 

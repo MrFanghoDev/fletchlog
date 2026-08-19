@@ -2,35 +2,100 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>FletchLog — Carnet de tir</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1216">
+<script>
+  // Doit s'exécuter avant le premier paint, avant même theme.css --
+  // sinon on voit un flash du thème par défaut avant bascule (voir
+  // app.js pour la logique de clic, qui pose la même clé localStorage).
+  (function () {
+    var t = localStorage.getItem("fletchlog-theme");
+    if (t === "light" || t === "dark") {
+      document.documentElement.setAttribute("data-theme", t);
+    }
+  })();
+</script>
 <link rel="stylesheet" href="theme.css">
 <style>
-  /* Squelette de départ -- pas encore l'appli réelle (vues Liste/Carte,
-     stockage IndexedDB, service worker). Voir les Issues du dépôt pour
-     le premier jalon en cours. Construit sur theme.css, comme les
-     autres pages de la famille FletchApps/FletchScore/FletchTime. */
-  .hero { text-align: center; padding: 72px 20px 40px; }
-  .hero svg.mark { width: 72px; height: 72px; margin: 0 auto 18px; display: block; }
-  .hero h1 { justify-content: center; font-size: 1.7rem; }
-  .hero p.tagline { font-size: 15px; color: var(--text-muted); max-width: 420px; margin: 0 auto; line-height: 1.6; }
+  /* Ossature de l'appli (issue #1) -- header, bascule de vue, nav
+     basse, FAB. Les deux vues restent des placeholders : leur contenu
+     réel vient de #3 (Liste) et #7 (Carte). */
+  html, body { height: 100%; }
+  body { overflow: hidden; }
+  .app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; max-width: 480px; margin: 0 auto; position: relative; }
+
+  .top-bar { display: flex; align-items: center; justify-content: space-between; padding: env(safe-area-inset-top, 0) 16px 10px; padding-top: calc(env(safe-area-inset-top, 0px) + 16px); flex-shrink: 0; }
+  .brand { display: flex; align-items: center; gap: 8px; }
+  .brand svg { flex-shrink: 0; }
+  .brand span { font-size: 19px; font-weight: 700; letter-spacing: -0.2px; }
+
+  main { flex: 1; overflow-y: auto; position: relative; }
+  .view { display: none; padding: 8px 16px 110px; }
+  .view.active { display: block; }
+  .view-placeholder { color: var(--text-muted); font-size: 14px; text-align: center; margin-top: 60px; }
+
+  .fab { position: absolute; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; border-radius: 50%; background: var(--gold); border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0,0,0,0.35); color: #1a1206; cursor: pointer; }
+  .fab svg { display: block; }
+
+  .bottom-nav { flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; padding: 4px 22px; font-family: inherit; cursor: pointer; color: var(--text-faint); }
+  .nav-btn svg { stroke: var(--text-faint); }
+  .nav-btn.active { color: var(--gold); }
+  .nav-btn.active svg { stroke: var(--gold); }
+  .nav-btn span { font-size: 11px; }
+  .nav-btn.active span { font-weight: 600; }
+
+  .toast { position: absolute; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 8px 14px; border-radius: 999px; white-space: nowrap; box-shadow: 0 6px 16px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.2s ease; }
+  .toast.visible { opacity: 1; }
 </style>
 </head>
 <body>
-<div class="page">
-  <div class="hero">
-    <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5">
-      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="var(--gold)" stroke="none"/>
-    </svg>
-    <h1>FletchLog</h1>
-    <p class="tagline">
-      Carnet personnel pour archers FFTL/IFAA -- lieux, cibles, disciplines.
-      En cours de construction.
-    </p>
-  </div>
+<div class="app">
+
+  <header class="top-bar">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.7">
+        <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="var(--gold)" stroke="none"/>
+      </svg>
+      <span>FletchLog</span>
+    </div>
+    <div class="theme-toggle">
+      <button class="theme-btn" data-theme-value="system" aria-label="Thème système">◐</button>
+      <button class="theme-btn" data-theme-value="light" aria-label="Thème clair">☀</button>
+      <button class="theme-btn" data-theme-value="dark" aria-label="Thème sombre">☾</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="view-liste" class="view active">
+      <p class="view-placeholder">Vue Liste -- à venir (voir l'issue #3).</p>
+    </section>
+    <section id="view-carte" class="view">
+      <p class="view-placeholder">Vue Carte -- à venir (voir l'issue #7).</p>
+    </section>
+  </main>
+
+  <button class="fab" id="fab-add" title="Ajouter une sortie -- bientôt disponible">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1206" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-view="liste">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <span>Liste</span>
+    </button>
+    <button class="nav-btn" data-view="carte">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M9 20l-6-2V6l6 2 6-2 6 2v12l-6-2-6 2Z"/><path d="M9 8v12M15 6v12"/></svg>
+      <span>Carte</span>
+    </button>
+  </nav>
+
 </div>
+<script src="app.js"></script>
 </body>
 </html>
