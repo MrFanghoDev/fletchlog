@@ -173,8 +173,14 @@ plus haut), sans rapport avec un numéro de version affiché ou suivi.
 
 Décision : **tags git + Release GitHub aux jalons**, posés à la main
 (pas de CI/build à déclencher comme chez les deux autres projets --
-purement déclaratif, juste un repère dans l'historique). Pas de numéro
-affiché dans l'UI pour l'instant.
+purement déclaratif, juste un repère dans l'historique).
+
+**Numéro affiché dans le footer** (issue #20, décidé dans la foulée) :
+`version.js` -- une seule constante `FLETCHLOG_VERSION`, maintenue à
+la main, à mettre à jour à chaque tag posé (pas de dérivation
+automatique possible sans build). Affiché dans le footer d'`index.html`
+et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
+`app.html`, qui n'en a pas.
 
 ## Pas encore tranché
 

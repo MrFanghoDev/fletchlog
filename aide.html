@@ -89,12 +89,14 @@
       <span data-i18n="siteFooterCredit">Développé pour les Archers Libres de Fontaine-le-Port ·</span>
       <a href="https://github.com/MrFanghoDev" target="_blank" rel="noopener">@MrFanghoDev</a>
       · <a href="https://github.com/MrFanghoDev/fletchlog/blob/master/LICENSE" data-i18n="siteFooterLicense" target="_blank" rel="noopener">Licence GPLv3</a>
+      · <span id="footer-version"></span>
     </footer>
   </div>
 
 <script src="i18n.js"></script>
 <script src="theme.js"></script>
 <script src="sw-register.js"></script>
+<script src="version.js"></script>
 <script>
   let currentLanguage = localStorage.getItem("fletchlog_lang") || "fr";
 
@@ -117,6 +119,7 @@
   }
 
   applyTranslations();
+  document.getElementById("footer-version").textContent = FLETCHLOG_VERSION;
 </script>
 </body>
 </html>

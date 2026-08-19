@@ -3,7 +3,7 @@
 // premier chargement. Rien d'autre pour l'instant : pas de données
 // dynamiques à mettre en cache (voir #2, IndexedDB gère ça séparément).
 
-const CACHE_NAME = "fletchlog-shell-v15";
+const CACHE_NAME = "fletchlog-shell-v16";
 const FICHIERS_A_METTRE_EN_CACHE = [
   "./",
   "./index.html",
@@ -14,6 +14,7 @@ const FICHIERS_A_METTRE_EN_CACHE = [
   "./i18n.js",
   "./sw-register.js",
   "./storage.js",
+  "./version.js",
   "./app.js",
   "./manifest.json",
   "./icon.svg",
