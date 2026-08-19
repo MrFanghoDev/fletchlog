@@ -55,6 +55,17 @@ pas la reperdre :
   navigateurs -- même en local, servir via un petit serveur statique
   (`python3 -m http.server` depuis le dossier, ou équivalent), jamais en
   ouvrant `index.html` directement.
+- **`start_url` du manifest = `index.html` (accueil), pas `app.html`**
+  -- revenu en arrière après une vraie installation/test par
+  l'utilisateur (issue #8, 2026-08-19). Le raisonnement initial ("l'icône
+  installée doit ouvrir directement le carnet") oubliait un point : le
+  service worker met déjà TOUTES les pages en cache dès la première
+  visite, donc l'accès hors ligne à l'aide ne dépendait pas de
+  `start_url` -- le vrai blocage, c'est qu'`app.html` n'a aucun lien de
+  retour vers l'accueil/l'aide (choix délibéré, comme `control.html` de
+  FletchTime). Repartir sur l'accueil comme point d'entrée règle ça
+  simplement (accueil -> app -> retour via le geste natif -> aide),
+  sans avoir à ajouter un lien dans `app.html`.
 - **Palette/identité visuelle** : reprise telle quelle de
   `fletchapps/theme.css` (canonique, voir la section "Design partagé"
   du CLAUDE.md global) -- copié dans ce dépôt (`theme.css`), pas de lien

@@ -2,7 +2,7 @@
   "name": "FletchLog",
   "short_name": "FletchLog",
   "description": "Carnet personnel pour archers FFTL/IFAA -- lieux, cibles, disciplines.",
-  "start_url": "./app.html",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0f1216",
   "theme_color": "#0f1216",
