@@ -66,6 +66,27 @@ pas la reperdre :
   FletchTime). Repartir sur l'accueil comme point d'entrée règle ça
   simplement (accueil -> app -> retour via le geste natif -> aide),
   sans avoir à ajouter un lien dans `app.html`.
+- **Icônes PNG (192×192, 512×512) obligatoires dans `manifest.json`,
+  le SVG seul ne suffit pas pour une vraie installation WebAPK
+  Android.** Repéré après coup (2026-08-19) : l'utilisateur voyait un
+  bandeau navigateur (nom du site) même sur le dialogue de confirmation
+  maison, symptôme que Chrome n'installait pas un vrai WebAPK standalone
+  mais retombait sur un mode "raccourci"/minimal-ui qui garde du chrome
+  navigateur visible. `manifest.json` ne déclarait qu'une icône SVG
+  (`"sizes": "any"`) -- combinaison documentée comme cassant
+  l'installation dans un bug Chromium connu
+  ([issues.chromium.org/issues/40925759](https://issues.chromium.org/issues/40925759)),
+  et 192×192/512×512 en PNG sont les deux tailles que le spec Web App
+  Manifest et la vérification d'installabilité de Chrome attendent
+  réellement (voir [web.dev/articles/add-manifest](https://web.dev/articles/add-manifest)
+  et [MDN -- icons](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest/Reference/icons)).
+  Corrigé : `icon-192.png`/`icon-512.png` générés depuis `icon.svg`
+  (`magick -background none icon.svg -resize NxN icon-N.png`, nécessite
+  `apk add librsvg` pour le délégué SVG d'ImageMagick) et déclarés à la
+  place du SVG dans `manifest.json` -- `icon.svg` reste utilisé comme
+  favicon (`<link rel="icon">`), juste retiré des icônes du manifest.
+  **Non encore reconfirmé sur un vrai appareil après ce correctif** --
+  à vérifier à la prochaine réinstallation.
 - **Palette/identité visuelle** : reprise telle quelle de
   `fletchapps/theme.css` (canonique, voir la section "Design partagé"
   du CLAUDE.md global) -- copié dans ce dépôt (`theme.css`), pas de lien
