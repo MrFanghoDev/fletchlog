@@ -97,6 +97,29 @@ pas la reperdre :
   l'action centrale du MVP est un journal/carnet ("log"), pas une vue
   cartographique en tant que fonctionnalité phare ; "Map" redeviendrait
   pertinent si une vraie vue carte devenait centrale plus tard.
+- **Logo définitif (issue #19, 2026-08-19)** : `icon.svg` -- cible
+  (deux anneaux concentriques) **aplatie** en ellipses pour un effet
+  de perspective ("vue de côté"), avec un **map pin** dessiné
+  par-dessus dont la pointe touche un petit point central marquant le
+  milieu de la cible. Direction validée par l'utilisateur après deux
+  itérations visuelles (mockups publiés en Artifact, jamais appliquées
+  au dépôt avant validation explicite) -- une première piste
+  (silhouette pin ovale + empennage à 3 pales) écartée, l'empennage
+  jugé superflu. `icon-192.png`/`icon-512.png` régénérés depuis ce
+  nouveau `icon.svg` (même commande `magick`+`librsvg` que d'habitude).
+  **Le pin générique de la vue Carte (`ICONE_PIN_CARTE` dans
+  `app.js`) n'a volontairement PAS été aligné sur ce nouveau tracé**
+  -- question posée explicitement, réponse : non, les deux restent
+  indépendants.
+  **Non fait non plus, hors périmètre de ce ticket** : les petites
+  icônes de marque en ligne (24×24, trait fin) utilisées comme logo
+  compact dans les en-têtes d'`index.html`/`app.html`/`aide.html`, et
+  le placeholder de vignette photo (`ICONE_PLACEHOLDER_PHOTO` dans
+  `app.js`) -- gardent l'ancien motif "cercles concentriques" simple.
+  Une vraie divergence visuelle existe désormais entre l'icône d'app
+  (nouveau pin+cible aplatie) et ces petites icônes de navigation
+  (ancien bullseye) -- signalé ici pour ne pas l'oublier, pas encore
+  un ticket dédié.
 
 ## Conventions techniques (à compléter au fil du code)
 

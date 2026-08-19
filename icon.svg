@@ -1,6 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="112" fill="#0f1216"/>
-  <circle cx="256" cy="256" r="176" fill="none" stroke="#d1a13d" stroke-width="26"/>
-  <circle cx="256" cy="256" r="104" fill="none" stroke="#d1a13d" stroke-width="26"/>
-  <circle cx="256" cy="256" r="32" fill="#d1a13d"/>
+  <!-- Cible : cercles concentriques aplatis (vus de côté) -->
+  <ellipse cx="256" cy="340" rx="150" ry="62" fill="none" stroke="#d1a13d" stroke-width="24"/>
+  <ellipse cx="256" cy="340" rx="88" ry="36" fill="none" stroke="#d1a13d" stroke-width="24"/>
+  <!-- Map pin affiné, par-dessus, pointe juste au-dessus du centre -->
+  <g transform="translate(124, 98) scale(11)">
+    <path d="M12 2C6.8 2 6.5 5.6 6.5 10c0 5.6 5.5 11.2 5.5 11.2s5.5-5.6 5.5-11.2c0-4.4-2.475-8-5.5-8Z" fill="#d1a13d" stroke="#0f1216" stroke-width="0.5"/>
+  </g>
+  <!-- Point central de la cible -->
+  <circle cx="256" cy="340" r="12" fill="#d1a13d"/>
 </svg>
