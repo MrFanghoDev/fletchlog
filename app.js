@@ -243,13 +243,40 @@ function soumettreFormulaire(evenement) {
     });
 }
 
+function demanderConfirmation(message) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("confirm-overlay");
+    const boutonAnnuler = document.getElementById("confirm-annuler");
+    const boutonValider = document.getElementById("confirm-valider");
+    document.getElementById("confirm-message").textContent = message;
+
+    function nettoyer(resultat) {
+      overlay.hidden = true;
+      boutonAnnuler.removeEventListener("click", surAnnuler);
+      boutonValider.removeEventListener("click", surValider);
+      resolve(resultat);
+    }
+    function surAnnuler() {
+      nettoyer(false);
+    }
+    function surValider() {
+      nettoyer(true);
+    }
+    boutonAnnuler.addEventListener("click", surAnnuler);
+    boutonValider.addEventListener("click", surValider);
+    overlay.hidden = false;
+  });
+}
+
 function supprimerDepuisFormulaire() {
   if (!idEnEdition) return;
-  if (!window.confirm(t(currentLanguage, "confirmSuppression"))) return;
-  supprimerEntree(idEnEdition).then(() => {
-    fermerFormulaire();
-    afficherToast(t(currentLanguage, "toastSupprime"));
-    chargerEntrees();
+  demanderConfirmation(t(currentLanguage, "confirmSuppression")).then((confirme) => {
+    if (!confirme) return;
+    supprimerEntree(idEnEdition).then(() => {
+      fermerFormulaire();
+      afficherToast(t(currentLanguage, "toastSupprime"));
+      chargerEntrees();
+    });
   });
 }
 

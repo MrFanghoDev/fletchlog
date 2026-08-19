@@ -84,6 +84,18 @@
   .btn-annuler { background: var(--surface-2); color: var(--text); border: 1px solid var(--border) !important; }
   .btn-supprimer { background: transparent; color: var(--red); border: 1px solid var(--red) !important; flex: 0 0 auto !important; }
 
+  /* Dialogue de confirmation maison -- remplace window.confirm(),
+     dont l'intitulé "<domaine> dit" (imposé par le navigateur, non
+     personnalisable) affichait l'adresse GitHub Pages plutôt que
+     "FletchLog", repéré par l'utilisateur en testant. */
+  .confirm-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .confirm-overlay[hidden] { display: none; }
+  .confirm-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; max-width: 340px; width: 100%; display: flex; flex-direction: column; gap: 16px; }
+  .confirm-box p { margin: 0; font-size: 14px; color: var(--text); line-height: 1.5; }
+  .confirm-actions { display: flex; gap: 10px; }
+  .confirm-actions button { flex: 1; }
+  .confirm-actions .btn-supprimer { flex: 1 !important; }
+
   .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 10; }
   .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; padding: 4px 22px; font-family: inherit; cursor: pointer; color: var(--text-faint); }
   .nav-btn svg { stroke: var(--text-faint); }
@@ -180,6 +192,16 @@
           <button type="submit" class="btn-primary" data-i18n="formSauvegarder">Enregistrer</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="confirm-overlay" id="confirm-overlay" hidden>
+    <div class="confirm-box">
+      <p id="confirm-message"></p>
+      <div class="confirm-actions">
+        <button type="button" class="btn-annuler" id="confirm-annuler" data-i18n="formAnnuler">Annuler</button>
+        <button type="button" class="btn-supprimer" id="confirm-valider" data-i18n="formSupprimer">Supprimer</button>
+      </div>
     </div>
   </div>
 
