@@ -89,32 +89,37 @@ function valeursDistinctes(champ) {
   return [...valeurs].sort((a, b) => a.localeCompare(b));
 }
 
-function rafraichirFiltres() {
-  const selDiscipline = document.getElementById("filtre-discipline");
-  const selDistance = document.getElementById("filtre-distance");
-  const disciplineAvant = selDiscipline.value;
-  const distanceAvant = selDistance.value;
+function valeursDistinctesLabels() {
+  const valeurs = new Set();
+  entreesActuelles.forEach((e) => (e.labels || []).forEach((l) => valeurs.add(l)));
+  return [...valeurs].sort((a, b) => a.localeCompare(b));
+}
 
-  selDiscipline.innerHTML =
-    `<option value="">${t(currentLanguage, "filtreToutesDisciplines")}</option>` +
-    valeursDistinctes("discipline")
-      .map((v) => `<option value="${_echapperAttr(v)}">${_echapperTexte(v)}</option>`)
-      .join("");
-  selDistance.innerHTML =
-    `<option value="">${t(currentLanguage, "filtreToutesDistances")}</option>` +
-    valeursDistinctes("distance")
-      .map((v) => `<option value="${_echapperAttr(v)}">${_echapperTexte(v)}</option>`)
-      .join("");
+function remplirSelectFiltre(id, valeurs, cleOptionVide) {
+  const select = document.getElementById(id);
+  const valeurAvant = select.value;
+
+  select.innerHTML =
+    `<option value="">${t(currentLanguage, cleOptionVide)}</option>` +
+    valeurs.map((v) => `<option value="${_echapperAttr(v)}">${_echapperTexte(v)}</option>`).join("");
 
   // Restaure la sélection si la valeur existe toujours après le
   // rechargement des options (ex. après un changement de langue --
   // les valeurs viennent des données, pas du dictionnaire, donc rien
   // à traduire ici, juste à ne pas perdre le filtre en cours).
-  if ([...selDiscipline.options].some((o) => o.value === disciplineAvant)) selDiscipline.value = disciplineAvant;
-  if ([...selDistance.options].some((o) => o.value === distanceAvant)) selDistance.value = distanceAvant;
+  if ([...select.options].some((o) => o.value === valeurAvant)) select.value = valeurAvant;
+  select.classList.toggle("active", select.value !== "");
+}
 
-  selDiscipline.classList.toggle("active", selDiscipline.value !== "");
-  selDistance.classList.toggle("active", selDistance.value !== "");
+function rafraichirFiltres() {
+  remplirSelectFiltre("filtre-discipline", valeursDistinctes("discipline"), "filtreToutesDisciplines");
+  remplirSelectFiltre("filtre-distance", valeursDistinctes("distance"), "filtreToutesDistances");
+  remplirSelectFiltre("filtre-lieu", valeursDistinctes("lieu"), "filtreTousLieux");
+  remplirSelectFiltre("filtre-label", valeursDistinctesLabels(), "filtreTousLabels");
+
+  document.getElementById("labels-existants").innerHTML = valeursDistinctesLabels()
+    .map((v) => `<option value="${_echapperAttr(v)}"></option>`)
+    .join("");
 }
 
 function _echapperTexte(texte) {
@@ -143,15 +148,34 @@ function carteHTML(entree) {
   const sousLigne = [entree.distance, formaterDate(entree.date)].filter((v) => v && v.trim()).join(" · ");
   const urlPhoto = entree.photoId ? photosCache[entree.photoId] : null;
   const vignette = urlPhoto ? `<img src="${urlPhoto}" alt="">` : ICONE_PLACEHOLDER_PHOTO;
+
+  // Entrées créées avant #11 : pas de titre -- repli sur le lieu comme
+  // intitulé, sans doublonner la ligne lieu juste en dessous.
+  const aTitreReel = entree.titre && entree.titre.trim();
+  const titreAffiche = aTitreReel ? entree.titre : entree.lieu;
+  const ligneLieu = aTitreReel
+    ? `<div class="carte-lieu">${ICONE_PIN}<span>${_echapperTexte(entree.lieu)}</span></div>`
+    : "";
+  const labelsLigne = (entree.labels || []).length
+    ? `<div class="carte-labels">${entree.labels.map((l) => `<span class="badge-label">${_echapperTexte(l)}</span>`).join("")}</div>`
+    : "";
+  const commentaireLigne =
+    entree.commentaire && entree.commentaire.trim()
+      ? `<div class="carte-commentaire">${_echapperTexte(entree.commentaire)}</div>`
+      : "";
+
   return `
     <button type="button" class="carte-entree" data-id="${_echapperAttr(entree.id)}">
       <div class="carte-vignette">${vignette}</div>
       <div class="carte-texte">
-        <div class="carte-titre">${ICONE_PIN}<span>${_echapperTexte(entree.lieu)}</span></div>
+        <div class="carte-titre"><span>${_echapperTexte(titreAffiche)}</span></div>
+        ${ligneLieu}
         <div class="carte-meta">
           ${entree.discipline ? `<span class="badge-discipline">${_echapperTexte(entree.discipline)}</span>` : ""}
           <span class="carte-sous">${_echapperTexte(sousLigne)}</span>
         </div>
+        ${labelsLigne}
+        ${commentaireLigne}
         ${meteoLigne}
       </div>
       ${ICONE_CHEVRON}
@@ -162,8 +186,16 @@ function carteHTML(entree) {
 function entreesFiltrees() {
   const discipline = document.getElementById("filtre-discipline").value;
   const distance = document.getElementById("filtre-distance").value;
+  const lieu = document.getElementById("filtre-lieu").value;
+  const label = document.getElementById("filtre-label").value;
+  const recherche = document.getElementById("recherche-commentaire").value.trim().toLowerCase();
   return entreesActuelles.filter(
-    (e) => (!discipline || e.discipline === discipline) && (!distance || e.distance === distance)
+    (e) =>
+      (!discipline || e.discipline === discipline) &&
+      (!distance || e.distance === distance) &&
+      (!lieu || e.lieu === lieu) &&
+      (!label || (e.labels || []).includes(label)) &&
+      (!recherche || (e.commentaire || "").toLowerCase().includes(recherche))
   );
 }
 
@@ -286,10 +318,15 @@ function ouvrirFormulaire(id) {
 
   document.getElementById("form-titre").setAttribute("data-i18n", entree ? "formTitreEdition" : "formTitreAjout");
   document.getElementById("form-titre").textContent = t(currentLanguage, entree ? "formTitreEdition" : "formTitreAjout");
+  // Entrées créées avant #11 (pas de titre) -- repli sur le lieu pour
+  // ne pas présenter un champ obligatoire vide sans raison à l'édition.
+  document.getElementById("champ-titre").value = entree ? entree.titre || entree.lieu : "";
   document.getElementById("champ-lieu").value = entree ? entree.lieu : "";
   document.getElementById("champ-cible").value = entree ? entree.cible : "";
   document.getElementById("champ-discipline").value = entree ? entree.discipline : "";
   document.getElementById("champ-distance").value = entree ? entree.distance : "";
+  document.getElementById("champ-labels").value = entree && entree.labels ? entree.labels.join(", ") : "";
+  document.getElementById("champ-commentaire").value = entree ? entree.commentaire || "" : "";
   document.getElementById("champ-meteo").value = entree ? entree.meteo : "aucune";
   document.getElementById("champ-date").value = entree ? entree.date : new Date().toISOString().slice(0, 10);
   document.getElementById("form-erreur").hidden = true;
@@ -317,11 +354,23 @@ function fermerFormulaire() {
   idEnEdition = null;
 }
 
+function afficherErreurFormulaire(cle) {
+  const erreur = document.getElementById("form-erreur");
+  erreur.setAttribute("data-i18n", cle);
+  erreur.textContent = t(currentLanguage, cle);
+  erreur.hidden = false;
+}
+
 function soumettreFormulaire(evenement) {
   evenement.preventDefault();
+  const titre = document.getElementById("champ-titre").value.trim();
   const lieu = document.getElementById("champ-lieu").value.trim();
+  if (!titre) {
+    afficherErreurFormulaire("champTitreRequis");
+    return;
+  }
   if (!lieu) {
-    document.getElementById("form-erreur").hidden = false;
+    afficherErreurFormulaire("formLieuRequis");
     return;
   }
 
@@ -330,10 +379,13 @@ function soumettreFormulaire(evenement) {
   resoudrePhotoPourEnvoi(entreeExistante)
     .then((photoId) => {
       const donnees = {
+        titre,
         lieu,
         cible: document.getElementById("champ-cible").value.trim(),
         discipline: document.getElementById("champ-discipline").value.trim(),
         distance: document.getElementById("champ-distance").value.trim(),
+        labels: document.getElementById("champ-labels").value,
+        commentaire: document.getElementById("champ-commentaire").value.trim(),
         meteo: document.getElementById("champ-meteo").value,
         date: document.getElementById("champ-date").value,
         photoId,
@@ -415,14 +467,14 @@ function initFormulaire() {
     }
     afficherApercuPlaceholder();
   });
-  document.getElementById("filtre-discipline").addEventListener("change", () => {
-    document.getElementById("filtre-discipline").classList.toggle("active", document.getElementById("filtre-discipline").value !== "");
-    rafraichirListe();
+  ["filtre-discipline", "filtre-distance", "filtre-lieu", "filtre-label"].forEach((id) => {
+    document.getElementById(id).addEventListener("change", () => {
+      const select = document.getElementById(id);
+      select.classList.toggle("active", select.value !== "");
+      rafraichirListe();
+    });
   });
-  document.getElementById("filtre-distance").addEventListener("change", () => {
-    document.getElementById("filtre-distance").classList.toggle("active", document.getElementById("filtre-distance").value !== "");
-    rafraichirListe();
-  });
+  document.getElementById("recherche-commentaire").addEventListener("input", () => rafraichirListe());
 }
 
 applyTranslations();

@@ -41,6 +41,10 @@
      menu déroulant construit à la main (positionnement, clic-dehors,
      navigation clavier) : moins de code, et le picker natif Android
      est déjà une bonne expérience mobile. */
+  .recherche-commentaire { margin: 4px 0 10px; }
+  .recherche-commentaire input { width: 100%; font-family: var(--font-ui); font-size: 13px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .recherche-commentaire input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+
   .chip-row { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; scrollbar-width: none; }
   .chip-row::-webkit-scrollbar { display: none; }
   select.chip-select {
@@ -57,10 +61,15 @@
   .carte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
   .carte-titre { display: flex; align-items: center; gap: 5px; }
   .carte-titre span { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+  .carte-lieu { display: flex; align-items: center; gap: 5px; }
+  .carte-lieu span { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .carte-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .badge-discipline { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: var(--gold-dim); color: var(--gold); white-space: nowrap; }
   .carte-sous { font-size: 12px; color: var(--text-muted); }
+  .carte-labels { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .badge-label { font-size: 10.5px; padding: 2px 7px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap; }
   .carte-meteo { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); }
+  .carte-commentaire { font-size: 12px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .carte-chevron { flex-shrink: 0; }
 
   .fab { position: fixed; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; border-radius: 50%; background: var(--gold); border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0,0,0,0.35); color: #1a1206; cursor: pointer; z-index: 15; }
@@ -73,11 +82,13 @@
   .modal-overlay[hidden] { display: none; }
   .modal { padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px calc(env(safe-area-inset-bottom, 0px) + 20px); display: flex; flex-direction: column; gap: 14px; max-width: 480px; margin: 0 auto; width: 100%; }
   .modal h2 { font-size: 1.15rem; margin: 0; }
-  input[type=date] {
+  input[type=date], textarea {
     font-family: var(--font-ui); font-size: 0.9rem; color: var(--text);
     background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
     padding: 0.5rem 0.6rem;
   }
+  textarea { resize: vertical; }
+  textarea:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
   .form-erreur { color: var(--red); font-size: 0.85rem; margin: 0; min-height: 1.2em; }
   .form-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
   .form-actions button { flex: 1; }
@@ -145,9 +156,14 @@
 
   <main>
     <section id="view-liste" class="view active">
+      <div class="recherche-commentaire">
+        <input type="search" id="recherche-commentaire" data-i18n-placeholder="rechercheCommentairePlaceholder" placeholder="Rechercher dans les commentaires...">
+      </div>
       <div class="chip-row">
         <select class="chip-select" id="filtre-discipline"></select>
         <select class="chip-select" id="filtre-distance"></select>
+        <select class="chip-select" id="filtre-lieu"></select>
+        <select class="chip-select" id="filtre-label"></select>
       </div>
       <div class="card-list" id="liste-cartes"></div>
       <p class="view-empty" id="liste-vide" data-i18n="listeEmpty" hidden>Aucune sortie enregistrée -- ajoute la première avec le bouton +.</p>
@@ -168,6 +184,10 @@
       <h2 id="form-titre" data-i18n="formTitreAjout">Nouvelle sortie</h2>
       <form id="form-entree">
         <div class="field">
+          <label for="champ-titre" data-i18n="champTitreLabel">Titre</label>
+          <input type="text" id="champ-titre" required data-i18n-placeholder="champTitrePlaceholder" placeholder="Ex. Entraînement du soir">
+        </div>
+        <div class="field">
           <label for="champ-lieu" data-i18n="formLieuLabel">Lieu</label>
           <input type="text" id="champ-lieu" required data-i18n-placeholder="formLieuPlaceholder" placeholder="Ex. Club Les Aigles 77">
         </div>
@@ -182,6 +202,15 @@
         <div class="field">
           <label for="champ-distance" data-i18n="formDistanceLabel">Distance</label>
           <input type="text" id="champ-distance" data-i18n-placeholder="formDistancePlaceholder" placeholder="Ex. 18 m, Parcours varié...">
+        </div>
+        <div class="field">
+          <label for="champ-labels" data-i18n="formLabelsLabel">Labels</label>
+          <input type="text" id="champ-labels" list="labels-existants" data-i18n-placeholder="formLabelsPlaceholder" placeholder="Ex. amis, matériel test">
+          <datalist id="labels-existants"></datalist>
+        </div>
+        <div class="field">
+          <label for="champ-commentaire" data-i18n="formCommentaireLabel">Commentaire</label>
+          <textarea id="champ-commentaire" rows="3" data-i18n-placeholder="formCommentairePlaceholder" placeholder="Notes libres sur cette sortie..."></textarea>
         </div>
         <div class="field">
           <label for="champ-meteo" data-i18n="formMeteoLabel">Météo</label>

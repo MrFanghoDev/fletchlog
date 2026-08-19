@@ -8,6 +8,11 @@
  *
  * Schéma d'une entrée (store "entrees") :
  *   id          string   généré (crypto.randomUUID())
+ *   titre       string   intitulé de la sortie, obligatoire (issue #11)
+ *                         -- distingue plusieurs sorties au même lieu.
+ *                         Les entrées créées avant #11 n'en ont pas :
+ *                         voir carteHTML()/ouvrirFormulaire() côté
+ *                         app.js pour le repli sur `lieu` à l'affichage
  *   lieu        string   nom saisi par l'archer
  *   lat, lon    number | null   coordonnées GPS brutes (issue #6,
  *                                pas de reverse-geocoding, voir CLAUDE.md)
@@ -16,6 +21,14 @@
  *   distance    string   texte libre ("18 m", "Parcours varié"...) --
  *                         pas un nombre, les distances d'un parcours
  *                         nature ne sont pas une valeur unique
+ *   labels      string[] labels libres (issue #11) -- normalisés ici
+ *                         (minuscules, sans espaces superflus, dédupliqués)
+ *                         à partir d'une chaîne "a, b, a" ou d'un tableau
+ *                         déjà propre, jamais stockés bruts
+ *   commentaire string   note libre, optionnelle -- pas de filtre par
+ *                         valeur exacte (pas de sens pour du texte
+ *                         libre), juste une recherche "contient" côté
+ *                         vue Liste (issue #11)
  *   meteo       string   une des clés METEO_OPTIONS ci-dessous --
  *                         liste fermée plutôt que texte libre, pour
  *                         pouvoir afficher une icône cohérente par
@@ -57,18 +70,29 @@ function _ouvrirDB() {
   });
 }
 
+function _normaliserLabels(valeur) {
+  const brut = Array.isArray(valeur) ? valeur.join(",") : valeur || "";
+  return [...new Set(brut.split(",").map((l) => l.trim().toLowerCase()).filter((l) => l))];
+}
+
 function ajouterEntree(entree) {
   if (!entree || !entree.lieu || !entree.lieu.trim()) {
     return Promise.reject(new Error("Une entrée doit avoir un lieu."));
   }
+  if (!entree.titre || !entree.titre.trim()) {
+    return Promise.reject(new Error("Une entrée doit avoir un titre."));
+  }
   const complete = {
     id: crypto.randomUUID(),
+    titre: entree.titre.trim(),
     lieu: entree.lieu.trim(),
     lat: entree.lat ?? null,
     lon: entree.lon ?? null,
     cible: entree.cible ?? "",
     discipline: entree.discipline ?? "",
     distance: entree.distance ?? "",
+    labels: _normaliserLabels(entree.labels),
+    commentaire: (entree.commentaire ?? "").trim(),
     meteo: METEO_OPTIONS.includes(entree.meteo) ? entree.meteo : "aucune",
     date: entree.date ?? new Date().toISOString().slice(0, 10),
     photoId: entree.photoId ?? null,
@@ -92,9 +116,15 @@ function modifierEntree(entree) {
   if (!entree.lieu || !entree.lieu.trim()) {
     return Promise.reject(new Error("Une entrée doit avoir un lieu."));
   }
+  if (!entree.titre || !entree.titre.trim()) {
+    return Promise.reject(new Error("Une entrée doit avoir un titre."));
+  }
   const complete = {
     ...entree,
+    titre: entree.titre.trim(),
     lieu: entree.lieu.trim(),
+    labels: _normaliserLabels(entree.labels),
+    commentaire: (entree.commentaire ?? "").trim(),
     meteo: METEO_OPTIONS.includes(entree.meteo) ? entree.meteo : "aucune",
   };
   return _ouvrirDB().then(
