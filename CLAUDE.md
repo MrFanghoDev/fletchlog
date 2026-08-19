@@ -90,6 +90,14 @@ pas la reperdre :
   `pyproject.toml` ici) -- installé au besoin dans un des `.venv`
   partagés de la machine (ex. `/home/claude/.venv`) uniquement pour la
   vérification, jamais comme dépendance de l'appli elle-même.
+- **Chromium headless de cet environnement n'a pas les polices Unicode
+  courantes par défaut** (confirmé issue #8, même famille de problème
+  que l'emoji manquant documenté côté FletchScore) -- une flèche "←"
+  ou un caractère comme "⋮" s'affichait en tofu/carré vide dans les
+  captures Selenium avant `apk add font-noto` (paquet `font-noto-symbols`
+  notamment). Purement un manque de police de cet environnement de
+  vérification -- un vrai téléphone Android a une couverture Unicode
+  complète (Noto/Roboto), ne pas confondre avec un bug réel de l'appli.
 
 ## Pas encore tranché
 

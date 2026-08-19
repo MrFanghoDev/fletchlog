@@ -2,100 +2,120 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>FletchLog — Carnet de tir</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FletchLog</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1216">
-<script>
-  // Doit s'exécuter avant le premier paint, avant même theme.css --
-  // sinon on voit un flash du thème par défaut avant bascule (voir
-  // app.js pour la logique de clic, qui pose la même clé localStorage).
-  (function () {
-    var t = localStorage.getItem("fletchlog-theme");
-    if (t === "light" || t === "dark") {
-      document.documentElement.setAttribute("data-theme", t);
-    }
-  })();
-</script>
 <link rel="stylesheet" href="theme.css">
 <style>
-  /* Ossature de l'appli (issue #1) -- header, bascule de vue, nav
-     basse, FAB. Les deux vues restent des placeholders : leur contenu
-     réel vient de #3 (Liste) et #7 (Carte). */
-  html, body { height: 100%; }
-  body { overflow: hidden; }
-  .app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; max-width: 480px; margin: 0 auto; position: relative; }
+  /* Page d'accueil (issue #8) -- construite sur theme.css, comme
+     fletchapps/index.html et fletchtime/web/index.html. */
+  body { display: flex; flex-direction: column; align-items: center; padding: 5.5rem 1.25rem 2rem; min-height: 100vh; box-sizing: border-box; }
+  .hero { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 560px; }
+  .hero svg.mark { height: 4.5rem; width: 4.5rem; margin-bottom: 1.1rem; }
+  .hero h1 { font-size: 2rem; margin: 0 0 0.4rem; }
+  .hero .tagline { color: var(--text-muted); font-size: 1.02rem; margin: 0 0 0.6rem; line-height: 1.5; }
+  .hero .blurb { color: var(--text-faint); font-size: 0.9rem; line-height: 1.6; max-width: 480px; }
 
-  .top-bar { display: flex; align-items: center; justify-content: space-between; padding: env(safe-area-inset-top, 0) 16px 10px; padding-top: calc(env(safe-area-inset-top, 0px) + 16px); flex-shrink: 0; }
-  .brand { display: flex; align-items: center; gap: 8px; }
-  .brand svg { flex-shrink: 0; }
-  .brand span { font-size: 19px; font-weight: 700; letter-spacing: -0.2px; }
+  .status-note {
+    margin-top: 1.5rem; display: flex; align-items: center; gap: 0.5rem;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+    padding: 0.5rem 1rem; font-size: 0.82rem; color: var(--text-muted);
+  }
+  .status-note .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
 
-  main { flex: 1; overflow-y: auto; position: relative; }
-  .view { display: none; padding: 8px 16px 110px; }
-  .view.active { display: block; }
-  .view-placeholder { color: var(--text-muted); font-size: 14px; text-align: center; margin-top: 60px; }
+  .cards { display: grid; gap: 1rem; width: 100%; max-width: 640px; margin-top: 2.25rem; grid-template-columns: 1fr; }
+  @media (min-width: 560px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 1.4rem; display: flex; flex-direction: column; gap: 0.6rem;
+  }
+  .card h2 { font-size: 1.02rem; margin: 0; }
+  .card p { color: var(--text-muted); font-size: 0.86rem; line-height: 1.5; margin: 0; flex-grow: 1; }
+  .card a.button {
+    font-family: var(--font-ui); font-size: 0.9rem; font-weight: 600;
+    padding: 0.6rem 1rem; border-radius: 8px; border: none; cursor: pointer;
+    color: #1a1206; background: var(--gold); text-decoration: none; text-align: center;
+  }
+  .card.help a.button { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 
-  .fab { position: absolute; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; border-radius: 50%; background: var(--gold); border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0,0,0,0.35); color: #1a1206; cursor: pointer; }
-  .fab svg { display: block; }
-
-  .bottom-nav { flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); }
-  .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; padding: 4px 22px; font-family: inherit; cursor: pointer; color: var(--text-faint); }
-  .nav-btn svg { stroke: var(--text-faint); }
-  .nav-btn.active { color: var(--gold); }
-  .nav-btn.active svg { stroke: var(--gold); }
-  .nav-btn span { font-size: 11px; }
-  .nav-btn.active span { font-weight: 600; }
-
-  .toast { position: absolute; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 8px 14px; border-radius: 999px; white-space: nowrap; box-shadow: 0 6px 16px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.2s ease; }
-  .toast.visible { opacity: 1; }
+  footer { margin-top: 3rem; color: var(--text-faint); font-size: 0.78rem; text-align: center; }
+  footer a { color: var(--text-muted); }
 </style>
 </head>
 <body>
-<div class="app">
 
-  <header class="top-bar">
-    <div class="brand">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.7">
-        <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="var(--gold)" stroke="none"/>
-      </svg>
-      <span>FletchLog</span>
-    </div>
+  <div class="top-controls">
     <div class="theme-toggle">
-      <button class="theme-btn" data-theme-value="system" aria-label="Thème système">◐</button>
-      <button class="theme-btn" data-theme-value="light" aria-label="Thème clair">☀</button>
-      <button class="theme-btn" data-theme-value="dark" aria-label="Thème sombre">☾</button>
+      <button class="theme-btn" data-theme="system" onclick="setTheme('system')" data-i18n-aria-label="themeSystemLabel" aria-label="Thème système">◐</button>
+      <button class="theme-btn" data-theme="light" onclick="setTheme('light')" data-i18n-aria-label="themeLightLabel" aria-label="Thème clair">☀</button>
+      <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')" data-i18n-aria-label="themeDarkLabel" aria-label="Thème sombre">☾</button>
     </div>
-  </header>
+    <div class="lang-toggle">
+      <button class="lang-btn" id="lang-fr-btn" onclick="setLanguage('fr')">FR</button>
+      <button class="lang-btn" id="lang-en-btn" onclick="setLanguage('en')">EN</button>
+    </div>
+  </div>
 
-  <main>
-    <section id="view-liste" class="view active">
-      <p class="view-placeholder">Vue Liste -- à venir (voir l'issue #3).</p>
-    </section>
-    <section id="view-carte" class="view">
-      <p class="view-placeholder">Vue Carte -- à venir (voir l'issue #7).</p>
-    </section>
-  </main>
+  <div class="hero">
+    <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.4">
+      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="var(--gold)" stroke="none"/>
+    </svg>
+    <h1>FletchLog</h1>
+    <p class="tagline" data-i18n="homeTagline">Carnet personnel pour archers FFTL/IFAA -- lieux, cibles, disciplines.</p>
+    <p class="blurb" data-i18n="homeBlurb">Mémorise où et sur quoi tu as tiré : lieu, cible, discipline, distance, météo, photo. Entraînement informel et tir nature compris, pas seulement les compétitions officielles. Installable sur ton téléphone, fonctionne hors connexion, aucune donnée envoyée sur un serveur.</p>
 
-  <button class="fab" id="fab-add" title="Ajouter une sortie -- bientôt disponible">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1206" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-  </button>
+    <div class="status-note">
+      <span class="dot"></span>
+      <span data-i18n="homeStatusText">En cours de construction -- les fonctionnalités arrivent progressivement, suivies sur GitHub.</span>
+    </div>
+  </div>
 
-  <div class="toast" id="toast" hidden></div>
+  <div class="cards">
+    <article class="card app">
+      <h2 data-i18n="homeAppTitle">Ouvrir FletchLog</h2>
+      <p data-i18n="homeAppDesc">Le carnet lui-même -- installe-le sur ton téléphone pour un accès hors ligne.</p>
+      <a class="button" href="app.html" data-i18n="homeAppButton">Ouvrir l'appli</a>
+    </article>
+    <article class="card help">
+      <h2 data-i18n="homeHelpTitle">Aide</h2>
+      <p data-i18n="homeHelpDesc">Comment installer et utiliser FletchLog.</p>
+      <a class="button" href="aide.html" data-i18n="homeHelpButton">Consulter l'aide</a>
+    </article>
+  </div>
 
-  <nav class="bottom-nav">
-    <button class="nav-btn active" data-view="liste">
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-      <span>Liste</span>
-    </button>
-    <button class="nav-btn" data-view="carte">
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M9 20l-6-2V6l6 2 6-2 6 2v12l-6-2-6 2Z"/><path d="M9 8v12M15 6v12"/></svg>
-      <span>Carte</span>
-    </button>
-  </nav>
+  <footer>
+    <span data-i18n="siteFooterCredit">Développé pour les Archers Libres de Fontaine-le-Port ·</span>
+    <a href="https://github.com/MrFanghoDev" target="_blank" rel="noopener">@MrFanghoDev</a>
+    · <a href="https://github.com/MrFanghoDev/fletchlog/blob/master/LICENSE" data-i18n="siteFooterLicense" target="_blank" rel="noopener">Licence GPLv3</a>
+    <br>
+    <a href="https://github.com/MrFanghoDev/fletchlog" data-i18n="homeFooterDevLink">Dépôt GitHub</a>
+  </footer>
 
-</div>
-<script src="app.js"></script>
+<script src="i18n.js"></script>
+<script src="theme.js"></script>
+<script>
+  let currentLanguage = localStorage.getItem("fletchlog_lang") || "fr";
+
+  function applyTranslations() {
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      el.textContent = t(currentLanguage, el.getAttribute("data-i18n"));
+    });
+    document.querySelectorAll("[data-i18n-aria-label]").forEach((el) => {
+      el.setAttribute("aria-label", t(currentLanguage, el.getAttribute("data-i18n-aria-label")));
+    });
+    document.getElementById("lang-fr-btn").classList.toggle("active", currentLanguage === "fr");
+    document.getElementById("lang-en-btn").classList.toggle("active", currentLanguage === "en");
+    document.documentElement.lang = currentLanguage;
+  }
+
+  function setLanguage(lang) {
+    currentLanguage = lang;
+    localStorage.setItem("fletchlog_lang", lang);
+    applyTranslations();
+  }
+
+  applyTranslations();
+</script>
 </body>
 </html>

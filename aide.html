@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FletchLog — Aide</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0f1216">
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* Page Aide (issue #8) -- même patron que fletchtime/web/manual.html
+     (sommaire, sections numérotées), construit sur theme.css. */
+  nav.toc {
+    margin-top: 1.5rem; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1rem 1.25rem;
+  }
+  nav.toc div { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-faint); margin-bottom: 0.5rem; }
+  nav.toc ul { margin: 0; padding-left: 1.1rem; font-size: 0.88rem; line-height: 1.9; }
+  nav.toc a { color: var(--text-muted); text-decoration: none; }
+  nav.toc a:hover { color: var(--gold); }
+
+  article.aide-section { margin-top: 2rem; }
+  article.aide-section h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
+  article.aide-section h3 { font-size: 0.95rem; margin: 1.25rem 0 0.4rem; color: var(--gold); }
+  article.aide-section p { line-height: 1.6; font-size: 0.92rem; color: var(--text); }
+  article.aide-section ol { line-height: 1.8; font-size: 0.92rem; padding-left: 1.3rem; }
+
+  footer { margin-top: 3rem; color: var(--text-faint); font-size: 0.78rem; text-align: center; }
+  footer a { color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+  <div class="top-controls">
+    <div class="theme-toggle">
+      <button class="theme-btn" data-theme="system" onclick="setTheme('system')" data-i18n-aria-label="themeSystemLabel" aria-label="Thème système">◐</button>
+      <button class="theme-btn" data-theme="light" onclick="setTheme('light')" data-i18n-aria-label="themeLightLabel" aria-label="Thème clair">☀</button>
+      <button class="theme-btn" data-theme="dark" onclick="setTheme('dark')" data-i18n-aria-label="themeDarkLabel" aria-label="Thème sombre">☾</button>
+    </div>
+    <div class="lang-toggle">
+      <button class="lang-btn" id="lang-fr-btn" onclick="setLanguage('fr')">FR</button>
+      <button class="lang-btn" id="lang-en-btn" onclick="setLanguage('en')">EN</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <a class="back" href="index.html" data-i18n="aideBack">← Retour à l'accueil</a>
+    <h1>
+      <svg width="1.6em" height="1.6em" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="var(--gold)" stroke="none"/></svg>
+      <span data-i18n="aideTitle">Aide</span>
+    </h1>
+
+    <nav class="toc">
+      <div data-i18n="aideTocLabel">Sommaire</div>
+      <ul>
+        <li><a href="#s1" data-i18n="aideS1Title">Installer FletchLog</a></li>
+        <li><a href="#s2" data-i18n="aideS2Title">Utiliser FletchLog</a></li>
+        <li><a href="#s3" data-i18n="aideS3Title">Tes données restent sur ton téléphone</a></li>
+      </ul>
+    </nav>
+
+    <article class="aide-section" id="s1">
+      <h2 data-i18n="aideS1Title">Installer FletchLog</h2>
+      <p data-i18n="aideS1Text">FletchLog est une Progressive Web App (PWA) : elle s'installe comme une vraie appli, sans passer par un store.</p>
+
+      <h3 data-i18n="aideS1AndroidTitle">Sur Android (Chrome)</h3>
+      <ol>
+        <li data-i18n="aideS1AndroidLi1">Ouvre FletchLog dans Chrome.</li>
+        <li data-i18n="aideS1AndroidLi2">Menu ⋮ (en haut à droite) → "Installer l'application" (ou "Ajouter à l'écran d'accueil").</li>
+        <li data-i18n="aideS1AndroidLi3">Confirme -- une icône FletchLog apparaît sur ton écran d'accueil, et l'appli s'ouvre directement sur ton carnet, sans passer par cette page.</li>
+      </ol>
+
+      <h3 data-i18n="aideS1OfflineTitle">Fonctionnement hors connexion</h3>
+      <p data-i18n="aideS1OfflineText">Une fois ouverte au moins une fois, l'appli continue de fonctionner sans réseau -- utile sur un pas de tir ou en pleine nature.</p>
+    </article>
+
+    <article class="aide-section" id="s2">
+      <h2 data-i18n="aideS2Title">Utiliser FletchLog</h2>
+      <p data-i18n="aideS2Text">Le projet est en tout début de construction : la navigation entre les vues Liste et Carte existe déjà, mais l'ajout réel d'une sortie (formulaire, photo, géolocalisation) arrive au fil des prochaines mises à jour. Le détail de chaque fonctionnalité et son avancement se suivent sur la page Issues du dépôt GitHub.</p>
+    </article>
+
+    <article class="aide-section" id="s3">
+      <h2 data-i18n="aideS3Title">Tes données restent sur ton téléphone</h2>
+      <p data-i18n="aideS3Text">FletchLog ne dépend d'aucun serveur : tout est stocké localement sur ton appareil. Une fonctionnalité d'export/import est prévue pour sauvegarder ton carnet ou changer de téléphone.</p>
+    </article>
+
+    <footer>
+      <span data-i18n="siteFooterCredit">Développé pour les Archers Libres de Fontaine-le-Port ·</span>
+      <a href="https://github.com/MrFanghoDev" target="_blank" rel="noopener">@MrFanghoDev</a>
+      · <a href="https://github.com/MrFanghoDev/fletchlog/blob/master/LICENSE" data-i18n="siteFooterLicense" target="_blank" rel="noopener">Licence GPLv3</a>
+    </footer>
+  </div>
+
+<script src="i18n.js"></script>
+<script src="theme.js"></script>
+<script>
+  let currentLanguage = localStorage.getItem("fletchlog_lang") || "fr";
+
+  function applyTranslations() {
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      el.textContent = t(currentLanguage, el.getAttribute("data-i18n"));
+    });
+    document.querySelectorAll("[data-i18n-aria-label]").forEach((el) => {
+      el.setAttribute("aria-label", t(currentLanguage, el.getAttribute("data-i18n-aria-label")));
+    });
+    document.getElementById("lang-fr-btn").classList.toggle("active", currentLanguage === "fr");
+    document.getElementById("lang-en-btn").classList.toggle("active", currentLanguage === "en");
+    document.documentElement.lang = currentLanguage;
+  }
+
+  function setLanguage(lang) {
+    currentLanguage = lang;
+    localStorage.setItem("fletchlog_lang", lang);
+    applyTranslations();
+  }
+
+  applyTranslations();
+</script>
+</body>
+</html>

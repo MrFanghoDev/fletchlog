@@ -1,27 +1,29 @@
-// Ossature de l'appli (issue #1) -- thème, bascule Liste/Carte, FAB.
-// Pas encore de logique métier (stockage, formulaire) : voir #2/#3/#7.
+// Script propre à app.html -- navigation Liste/Carte, FAB/toast,
+// service worker, glue i18n (voir i18n.js pour le dictionnaire,
+// theme.js pour la bascule de thème -- partagés avec index.html/
+// aide.html).
 
-const THEME_KEY = "fletchlog-theme";
+let currentLanguage = localStorage.getItem("fletchlog_lang") || "fr";
 
-function appliquerTheme(valeur) {
-  if (valeur === "system") {
-    document.documentElement.removeAttribute("data-theme");
-    localStorage.removeItem(THEME_KEY);
-  } else {
-    document.documentElement.setAttribute("data-theme", valeur);
-    localStorage.setItem(THEME_KEY, valeur);
-  }
-  document.querySelectorAll(".theme-btn").forEach((bouton) => {
-    bouton.classList.toggle("active", bouton.dataset.themeValue === valeur);
+function applyTranslations() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = t(currentLanguage, el.getAttribute("data-i18n"));
   });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((el) => {
+    el.setAttribute("aria-label", t(currentLanguage, el.getAttribute("data-i18n-aria-label")));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    el.setAttribute("title", t(currentLanguage, el.getAttribute("data-i18n-title")));
+  });
+  document.getElementById("lang-fr-btn").classList.toggle("active", currentLanguage === "fr");
+  document.getElementById("lang-en-btn").classList.toggle("active", currentLanguage === "en");
+  document.documentElement.lang = currentLanguage;
 }
 
-function initTheme() {
-  const stocke = localStorage.getItem(THEME_KEY);
-  appliquerTheme(stocke === "light" || stocke === "dark" ? stocke : "system");
-  document.querySelectorAll(".theme-btn").forEach((bouton) => {
-    bouton.addEventListener("click", () => appliquerTheme(bouton.dataset.themeValue));
-  });
+function setLanguage(lang) {
+  currentLanguage = lang;
+  localStorage.setItem("fletchlog_lang", lang);
+  applyTranslations();
 }
 
 function initNavigation() {
@@ -54,7 +56,7 @@ function afficherToast(message) {
 
 function initFab() {
   document.getElementById("fab-add").addEventListener("click", () => {
-    afficherToast("Ajout d'une sortie -- bientôt disponible (issue #3)");
+    afficherToast(t(currentLanguage, "fabToast"));
   });
 }
 
@@ -67,7 +69,7 @@ function initServiceWorker() {
   });
 }
 
-initTheme();
+applyTranslations();
 initNavigation();
 initFab();
 initServiceWorker();
