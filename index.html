@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FletchLog — Carnet de tir</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f1216">
+<link rel="stylesheet" href="theme.css">
+<style>
+  /* Squelette de départ -- pas encore l'appli réelle (vues Liste/Carte,
+     stockage IndexedDB, service worker). Voir les Issues du dépôt pour
+     le premier jalon en cours. Construit sur theme.css, comme les
+     autres pages de la famille FletchApps/FletchScore/FletchTime. */
+  .hero { text-align: center; padding: 72px 20px 40px; }
+  .hero svg.mark { width: 72px; height: 72px; margin: 0 auto 18px; display: block; }
+  .hero h1 { justify-content: center; font-size: 1.7rem; }
+  .hero p.tagline { font-size: 15px; color: var(--text-muted); max-width: 420px; margin: 0 auto; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="hero">
+    <svg class="mark" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5">
+      <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="var(--gold)" stroke="none"/>
+    </svg>
+    <h1>FletchLog</h1>
+    <p class="tagline">
+      Carnet personnel pour archers FFTL/IFAA -- lieux, cibles, disciplines.
+      En cours de construction.
+    </p>
+  </div>
+</div>
+</body>
+</html>

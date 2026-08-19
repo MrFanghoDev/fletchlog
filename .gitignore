@@ -1,0 +1,8 @@
+# Éditeurs / OS
+.DS_Store
+Thumbs.db
+*.swp
+
+# Pas de build step (JS/HTML/CSS vanilla) -- rien d'autre à ignorer pour
+# l'instant. À compléter si un jour une dépendance vendorée (ex. JSZip)
+# ou un outillage de dev l'exige.

@@ -1,0 +1,160 @@
+/*
+ * Système de conception partagé FletchTime / FletchScore
+ * ========================================================
+ *
+ * Extrait des pages web de FletchTime (config.html étant la référence la
+ * plus complète au moment de l'extraction) -- pensé pour être copié tel
+ * quel dans un autre projet de la même famille (FletchScore) et servir de
+ * base commune, sans dépendance à FletchTime lui-même.
+ *
+ * Usage : <link rel="stylesheet" href="theme.css"> dans le <head> de
+ * chaque page, avant tout <style> propre à la page qui voudrait
+ * surcharger un détail ponctuel.
+ *
+ * Thème clair/sombre : piloté par l'attribut data-theme sur <html> ou
+ * <body> ("dark" / "light"), avec repli automatique sur la préférence
+ * système (prefers-color-scheme) si l'attribut n'est pas posé -- voir
+ * FletchTime, gui.py et config.html pour un exemple de bascule JS qui
+ * pose cet attribut.
+ *
+ * Notes pour qui reprend ce fichier dans un autre projet :
+ * - Les noms de classes (.btn-primary, .panel, .field...) sont génériques
+ *   à dessein, pas spécifiques à FletchTime -- à réutiliser directement.
+ * - Rien ici ne dépend de JS spécifique à FletchTime ; les classes
+ *   d'état (.active, .visible, [open]...) sont à poser/retirer par le JS
+ *   du projet qui l'utilise.
+ * - Couleurs sémantiques (--red/--green pour erreur/succès) plutôt que
+ *   des noms d'usage (--error/--success) : choix historique de
+ *   FletchTime, à renommer si ça convient mieux à l'autre projet -- pas
+ *   de logique qui en dépende directement dans ce fichier.
+ */
+
+/* ---------- Couleurs et typographie ---------- */
+
+:root {
+  --bg: #0f1216; --surface: #171b22; --surface-2: #1d232c; --border: #2a3140;
+  --text: #e8ebf1; --text-muted: #8a93a6; --text-faint: #5c6579;
+  --gold: #d1a13d; --gold-dim: #4a3d21; --blue: #4c7bdb; --red: #d6534a; --green: #3f9868;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  --radius: 10px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #eef1f6; --surface: #ffffff; --surface-2: #f2f4f9; --border: #d7dce6;
+    --text: #1b2333; --text-muted: #5b6478; --text-faint: #838da0;
+    --gold: #a8781f; --gold-dim: #e8dcc0; --blue: #3357bf; --red: #b8392f; --green: #227a52;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #eef1f6; --surface: #ffffff; --surface-2: #f2f4f9; --border: #d7dce6;
+  --text: #1b2333; --text-muted: #5b6478; --text-faint: #838da0;
+  --gold: #a8781f; --gold-dim: #e8dcc0; --blue: #3357bf; --red: #b8392f; --green: #227a52;
+}
+:root[data-theme="dark"] {
+  --bg: #0f1216; --surface: #171b22; --surface-2: #1d232c; --border: #2a3140;
+  --text: #e8ebf1; --text-muted: #8a93a6; --text-faint: #5c6579;
+  --gold: #d1a13d; --gold-dim: #4a3d21; --blue: #4c7bdb; --red: #d6534a; --green: #3f9868;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-ui); }
+body { padding: 0 0 3rem; }
+
+/* ---------- Mise en page générale ---------- */
+
+.page { max-width: 900px; margin: 0 auto; padding: 2rem 1rem 0; }
+a.back { color: var(--text-muted); font-size: 0.85rem; text-decoration: none; }
+a.back:hover { color: var(--text); }
+h1 { display: flex; align-items: center; gap: 0.6rem; font-size: 1.4rem; margin: 1rem 0 0.25rem; }
+h1 img { height: 1.6em; width: auto; }
+p.intro { color: var(--text-muted); font-size: 0.88rem; line-height: 1.5; max-width: 640px; }
+
+/* ---------- Bascule langue/thème (coin haut droit) ---------- */
+
+.top-controls {
+  position: fixed; top: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 10;
+}
+.lang-toggle, .theme-toggle {
+  display: flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden;
+}
+.lang-btn, .theme-btn {
+  font-family: var(--font-ui); font-size: 0.75rem; padding: 0.35rem 0.7rem; margin: 0;
+  border: none; background: var(--surface); color: var(--text-muted); cursor: pointer;
+}
+.lang-btn.active { background: var(--gold); color: #1a1206; font-weight: 600; }
+.theme-btn.active { background: var(--blue); color: #fff; }
+
+/* ---------- Panneaux repliables (<details>) ---------- */
+
+details.panel {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  margin-top: 1rem; overflow: hidden;
+}
+details.panel summary {
+  list-style: none; cursor: pointer; padding: 0.9rem 1rem;
+  display: flex; align-items: center; gap: 0.6rem; font-size: 1rem; font-weight: 600;
+}
+details.panel summary::-webkit-details-marker { display: none; }
+details.panel summary .chevron { margin-left: auto; color: var(--text-faint); transition: transform 0.15s ease; }
+details.panel[open] summary .chevron { transform: rotate(90deg); }
+details.panel .panel-body { padding: 0 1rem 1.2rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+.panel-footer { display: flex; align-items: center; gap: 0.75rem; margin-top: 1.2rem; flex-wrap: wrap; }
+
+/* ---------- Champs de formulaire ---------- */
+
+.field-grid { display: grid; grid-template-columns: 1fr; gap: 0.9rem; }
+@media (min-width: 640px) { .field-grid { grid-template-columns: 1fr 1fr; } }
+
+.field { display: flex; flex-direction: column; gap: 0.3rem; }
+.field label { font-size: 0.78rem; color: var(--text-muted); }
+.field .hint { font-size: 0.72rem; color: var(--text-faint); }
+input[type=text], input[type=number], input[type=color], select {
+  font-family: var(--font-ui); font-size: 0.9rem; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+}
+input[type=number] { font-family: var(--font-mono); }
+input:focus, select:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+label.checkbox { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; color: var(--text); }
+
+/* ---------- Boutons ---------- */
+
+button {
+  font-family: var(--font-ui); font-size: 0.9rem; font-weight: 600;
+  padding: 0.6rem 1rem; border-radius: 8px; border: none; cursor: pointer; color: #fff;
+}
+.btn-primary { background: var(--gold); color: #1a1206; }
+button:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+
+/* ---------- Retour de sauvegarde (succès/erreur) ---------- */
+
+.save-status { font-size: 0.85rem; }
+.save-status.ok { color: var(--green); }
+.save-status.error { color: var(--red); }
+
+/* ---------- Superposition d'authentification par mot de passe ---------- */
+
+.auth-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 1000;
+  display: none; align-items: center; justify-content: center;
+}
+.auth-overlay.visible { display: flex; }
+.auth-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 2rem; max-width: 320px; width: 90%; text-align: center;
+}
+.auth-box h2 { margin: 0 0 0.5rem; font-size: 1.1rem; }
+.auth-box p { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 1.2rem; }
+.auth-box input {
+  width: 100%; padding: 0.6rem 0.8rem; margin-bottom: 0.8rem; font-size: 1rem;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); box-sizing: border-box;
+}
+.auth-box button {
+  width: 100%; padding: 0.6rem; font-size: 0.95rem; font-weight: 600;
+  background: var(--gold); color: #1a1206; border: none; border-radius: 8px; cursor: pointer;
+}
+.auth-error { color: var(--red); font-size: 0.85rem; margin-top: 0.6rem; min-height: 1.2em; }
