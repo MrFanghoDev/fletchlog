@@ -9,6 +9,8 @@ let idEnEdition = null;
 let photosCache = {}; // photoId -> URL d'objet (voir précharcherPhotos)
 let photoSelectionnee = null; // File choisi dans le formulaire, pas encore compressé/stocké
 let photoRetiree = false; // true si l'utilisateur a retiré la photo existante en édition
+let gpsLat = null; // coordonnées capturées pour la nouvelle entrée en cours (issue #6)
+let gpsLon = null;
 
 const ICONE_PIN =
   '<svg width="13" height="13" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg>';
@@ -310,6 +312,55 @@ function resoudrePhotoPourEnvoi(entreeExistante) {
   return Promise.resolve(ancienPhotoId);
 }
 
+// ---- Géolocalisation (issue #6) -------------------------------------
+// Capturée automatiquement à l'ouverture du formulaire d'AJOUT
+// seulement (pas en édition -- les coordonnées d'une entrée existante
+// ne sont jamais recapturées ni modifiables ici, voir #15). Coordonnées
+// brutes stockées telles quelles, aucun reverse-geocoding (voir
+// CLAUDE.md -- resterait offline-first).
+
+function afficherStatutGPS(etat) {
+  const conteneur = document.getElementById("gps-statut");
+  const texte = document.getElementById("gps-statut-texte");
+  conteneur.classList.remove("ok", "erreur");
+  if (etat === "inactif") {
+    conteneur.hidden = true;
+    return;
+  }
+  conteneur.hidden = false;
+  if (etat === "loading") {
+    texte.setAttribute("data-i18n", "gpsEnCours");
+    texte.textContent = t(currentLanguage, "gpsEnCours");
+  } else if (etat === "ok") {
+    conteneur.classList.add("ok");
+    texte.setAttribute("data-i18n", "gpsCapturee");
+    texte.textContent = t(currentLanguage, "gpsCapturee");
+  } else {
+    conteneur.classList.add("erreur");
+    texte.setAttribute("data-i18n", "gpsIndisponible");
+    texte.textContent = t(currentLanguage, "gpsIndisponible");
+  }
+}
+
+function demarrerCaptureGPS() {
+  gpsLat = null;
+  gpsLon = null;
+  if (!("geolocation" in navigator)) {
+    afficherStatutGPS("erreur");
+    return;
+  }
+  afficherStatutGPS("loading");
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      gpsLat = position.coords.latitude;
+      gpsLon = position.coords.longitude;
+      afficherStatutGPS("ok");
+    },
+    () => afficherStatutGPS("erreur"),
+    { timeout: 8000 }
+  );
+}
+
 // ---- Formulaire d'ajout/édition ------------------------------------
 
 function ouvrirFormulaire(id) {
@@ -343,6 +394,12 @@ function ouvrirFormulaire(id) {
     afficherApercuUrl(photosCache[entree.photoId]);
   } else {
     afficherApercuPlaceholder();
+  }
+
+  if (entree) {
+    afficherStatutGPS("inactif");
+  } else {
+    demarrerCaptureGPS();
   }
 
   document.getElementById("form-overlay").hidden = false;
@@ -390,6 +447,15 @@ function soumettreFormulaire(evenement) {
         date: document.getElementById("champ-date").value,
         photoId,
       };
+      // Coordonnées GPS uniquement à l'ajout (capturées par
+      // demarrerCaptureGPS() à l'ouverture du formulaire) -- en
+      // édition, donnees n'a pas de lat/lon, le spread ci-dessous
+      // préserve donc celles déjà enregistrées sur l'entrée (#15 pour
+      // une édition manuelle, hors périmètre ici).
+      if (!idEnEdition) {
+        donnees.lat = gpsLat;
+        donnees.lon = gpsLon;
+      }
       return idEnEdition ? modifierEntree({ ...entreeExistante, ...donnees }) : ajouterEntree(donnees);
     })
     .then(() => {
