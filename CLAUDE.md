@@ -110,10 +110,27 @@ pas la reperdre :
   vérification -- un vrai téléphone Android a une couverture Unicode
   complète (Noto/Roboto), ne pas confondre avec un bug réel de l'appli.
 
+## Stockage (issue #2, décidé)
+
+- `storage.js` : wrapper maison au-dessus de `indexedDB` natif (pas de
+  lib -- API brute suffisante ici, voir le principe de dépendances).
+  Base `fletchlog`, store `entrees` (schéma détaillé en tête de
+  `storage.js`) + store `photos` (Blobs, clé = `photoId`) créé dès
+  maintenant même si #4 ne l'alimente pas encore -- éviter une
+  deuxième migration de version IndexedDB pour un champ déjà connu du
+  schéma de #2.
+- **Météo en liste fermée** (`METEO_OPTIONS`), pas en texte libre --
+  décidé en écrivant #2 : une liste fermée permet une icône cohérente
+  par entrée dans la vue Liste (#3), un texte libre non.
+- **Pas de framework de test JS ajouté.** Le projet n'a ni build ni
+  `npm`/`package.json` -- vérification réelle via Selenium + Chromium
+  (déjà la convention établie, voir plus haut) qui exécute directement
+  le vrai `indexedDB` du navigateur, plutôt qu'un polyfill/mock en
+  Node qui testerait une simulation. Plus proche de l'esprit
+  "vérification réelle" du projet qu'un test unitaire isolé.
+
 ## Pas encore tranché
 
 - Format exact de l'export/import (`.zip` via JSZip vendoré vs autre
   approche) -- décidé en principe, pas encore implémenté.
-- Détail de la structure IndexedDB (schéma des entrées, wrapper maison
-  ou API native directe).
 - Découpage exact des tickets au-delà du premier jalon.
