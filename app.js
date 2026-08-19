@@ -17,7 +17,7 @@ const ICONE_PIN =
 const ICONE_CHEVRON =
   '<svg class="carte-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>';
 const ICONE_PLACEHOLDER_PHOTO =
-  '<svg width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><g transform="translate(5.8125,4.59375) scale(0.515625)"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Z" fill="var(--text-faint)"/></g><circle cx="12" cy="15.94" r="0.5625" fill="var(--text-faint)"/></svg>';
+  '<svg width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><g transform="translate(5.8125,4.59375) scale(0.515625)"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Z" fill="var(--text-faint)" stroke="#0f1216" stroke-width="2"/></g><circle cx="12" cy="15.94" r="0.5625" fill="var(--text-faint)"/></svg>';
 
 const ICONES_METEO = {
   ensoleille:

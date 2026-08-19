@@ -5,7 +5,7 @@
   <ellipse cx="256" cy="340" rx="88" ry="36" fill="none" stroke="#d1a13d" stroke-width="24"/>
   <!-- Map pin affiné, par-dessus, pointe juste au-dessus du centre -->
   <g transform="translate(124, 98) scale(11)">
-    <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Z" fill="#d1a13d" stroke="#0f1216" stroke-width="0.5"/>
+    <path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Z" fill="#d1a13d" stroke="#0f1216" stroke-width="5"/>
   </g>
   <!-- Point central de la cible -->
   <circle cx="256" cy="340" r="12" fill="#d1a13d"/>
