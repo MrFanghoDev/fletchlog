@@ -26,7 +26,7 @@
   .app { max-width: 480px; margin: 0 auto; }
 
   .top-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: env(safe-area-inset-top, 0) 16px 10px; padding-top: calc(env(safe-area-inset-top, 0px) + 16px); }
-  .brand { display: flex; align-items: center; gap: 8px; }
+  .brand { display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit; }
   .brand svg { flex-shrink: 0; }
   .brand span { font-size: 19px; font-weight: 700; letter-spacing: -0.2px; }
   .top-bar-controls { display: flex; align-items: center; gap: 6px; }
@@ -159,12 +159,12 @@
 <div class="app">
 
   <header class="top-bar">
-    <div class="brand">
+    <a class="brand" href="index.html">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.7">
         <circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="var(--gold)" stroke="none"/>
       </svg>
       <span>FletchLog</span>
-    </div>
+    </a>
     <div class="top-bar-controls">
       <div class="theme-toggle">
         <button class="theme-btn" data-theme="system" onclick="setTheme('system')" data-i18n-aria-label="themeSystemLabel" aria-label="Thème système">◐</button>

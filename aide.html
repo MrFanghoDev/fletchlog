@@ -11,6 +11,8 @@
 <style>
   /* Page Aide (issue #8) -- même patron que fletchtime/web/manual.html
      (sommaire, sections numérotées), construit sur theme.css. */
+  .titre-lien { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: inherit; }
+
   nav.toc {
     margin-top: 1.5rem; background: var(--surface); border: 1px solid var(--border);
     border-radius: 10px; padding: 1rem 1.25rem;
@@ -47,8 +49,10 @@
   <div class="page">
     <a class="back" href="index.html" data-i18n="aideBack">← Retour à l'accueil</a>
     <h1>
-      <svg width="1.6em" height="1.6em" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="var(--gold)" stroke="none"/></svg>
-      <span data-i18n="aideTitle">Aide</span>
+      <a class="titre-lien" href="index.html">
+        <svg width="1.6em" height="1.6em" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="var(--gold)" stroke="none"/></svg>
+        <span data-i18n="aideTitle">Aide</span>
+      </a>
     </h1>
 
     <nav class="toc">
