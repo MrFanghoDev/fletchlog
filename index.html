@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FletchLog</title>
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1216">
 <link rel="stylesheet" href="theme.css">
 <style>
@@ -94,6 +95,7 @@
 
 <script src="i18n.js"></script>
 <script src="theme.js"></script>
+<script src="sw-register.js"></script>
 <script>
   let currentLanguage = localStorage.getItem("fletchlog_lang") || "fr";
 

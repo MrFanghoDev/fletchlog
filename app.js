@@ -60,16 +60,6 @@ function initFab() {
   });
 }
 
-function initServiceWorker() {
-  if (!("serviceWorker" in navigator)) return;
-  // Le service worker refuse de s'enregistrer sous file:// -- servir
-  // avec un serveur statique même en local (voir CLAUDE.md/README).
-  navigator.serviceWorker.register("sw.js").catch((erreur) => {
-    console.warn("Enregistrement du service worker impossible :", erreur);
-  });
-}
-
 applyTranslations();
 initNavigation();
 initFab();
-initServiceWorker();
