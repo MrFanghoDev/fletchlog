@@ -81,6 +81,16 @@ pas la reperdre :
 
 - Pas de backend, pas de dépendance Python -- ce dépôt n'a pas vocation à
   avoir de `.venv`/`pyproject.toml` comme ses trois frères.
+- **`CACHE_NAME` dans `sw.js` à incrémenter à CHAQUE ticket qui modifie
+  le contenu d'un fichier déjà précaché** (`app.html`, `app.js`,
+  `i18n.js`, `theme.css`...), même si aucun nouveau fichier n'est
+  ajouté à `FICHIERS_A_METTRE_EN_CACHE`. Raison : le navigateur ne
+  redétecte une mise à jour du service worker que si les octets de
+  `sw.js` lui-même changent -- si seul le contenu d'`app.js` change
+  sans toucher `sw.js`, `install()` ne se redéclenche jamais et les
+  utilisateurs déjà installés restent bloqués sur l'ancienne version
+  indéfiniment. Piège réel, pas théorique : repéré en livrant #3 alors
+  que l'utilisateur avait déjà FletchLog installé.
 - **Vérification réelle (confirmé issue #1, 2026-08-19)** : `chromium` +
   `chromedriver` sont installés dans cet environnement -- Selenium (déjà
   utilisé côté FletchScore pour ses pages web, voir son CLAUDE.md)

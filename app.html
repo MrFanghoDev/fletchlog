@@ -23,25 +23,68 @@
   /* Ossature de l'appli (issue #1) -- header, bascule de vue, nav
      basse, FAB. Les deux vues restent des placeholders : leur contenu
      réel vient de #3 (Liste) et #7 (Carte). */
-  html, body { height: 100%; }
-  body { overflow: hidden; }
-  .app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; max-width: 480px; margin: 0 auto; position: relative; }
+  .app { max-width: 480px; margin: 0 auto; }
 
-  .top-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: env(safe-area-inset-top, 0) 16px 10px; padding-top: calc(env(safe-area-inset-top, 0px) + 16px); flex-shrink: 0; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: env(safe-area-inset-top, 0) 16px 10px; padding-top: calc(env(safe-area-inset-top, 0px) + 16px); }
   .brand { display: flex; align-items: center; gap: 8px; }
   .brand svg { flex-shrink: 0; }
   .brand span { font-size: 19px; font-weight: 700; letter-spacing: -0.2px; }
   .top-bar-controls { display: flex; align-items: center; gap: 6px; }
 
-  main { flex: 1; overflow-y: auto; position: relative; }
-  .view { display: none; padding: 8px 16px 110px; }
+  main { position: relative; }
+  .view { display: none; padding: 8px 16px calc(110px + env(safe-area-inset-bottom, 0px)); }
   .view.active { display: block; }
   .view-placeholder { color: var(--text-muted); font-size: 14px; text-align: center; margin-top: 60px; }
+  .view-empty { color: var(--text-muted); font-size: 14px; text-align: center; margin-top: 60px; padding: 0 20px; }
 
-  .fab { position: absolute; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; border-radius: 50%; background: var(--gold); border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0,0,0,0.35); color: #1a1206; cursor: pointer; }
+  /* Chips de filtre -- <select> natif stylé en pilule plutôt qu'un
+     menu déroulant construit à la main (positionnement, clic-dehors,
+     navigation clavier) : moins de code, et le picker natif Android
+     est déjà une bonne expérience mobile. */
+  .chip-row { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; scrollbar-width: none; }
+  .chip-row::-webkit-scrollbar { display: none; }
+  select.chip-select {
+    appearance: none; -webkit-appearance: none; font-family: var(--font-ui);
+    font-size: 12.5px; padding: 6px 26px 6px 12px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%235c6579" stroke-width="2.4" stroke-linecap="round"><path d="M5 9l7 7 7-7"/></svg>') no-repeat right 8px center / 11px 11px;
+    color: var(--text-muted); white-space: nowrap; flex-shrink: 0; cursor: pointer;
+  }
+  select.chip-select.active { border-color: var(--gold); background-color: var(--gold-dim); color: var(--gold); font-weight: 600; }
+
+  .card-list { display: flex; flex-direction: column; gap: 10px; }
+  .carte-entree { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; text-align: left; width: 100%; font-family: inherit; }
+  .carte-vignette { width: 58px; height: 58px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .carte-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .carte-titre { display: flex; align-items: center; gap: 5px; }
+  .carte-titre span { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+  .carte-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .badge-discipline { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: var(--gold-dim); color: var(--gold); white-space: nowrap; }
+  .carte-sous { font-size: 12px; color: var(--text-muted); }
+  .carte-meteo { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); }
+  .carte-chevron { flex-shrink: 0; }
+
+  .fab { position: fixed; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; border-radius: 50%; background: var(--gold); border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0,0,0,0.35); color: #1a1206; cursor: pointer; z-index: 15; }
   .fab svg { display: block; }
 
-  .bottom-nav { flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); }
+  /* Formulaire d'ajout/édition -- superposition plein écran, reprend
+     .field/.field label/input[type=text]/select/.btn-primary de
+     theme.css (voir sa section "Champs de formulaire"). */
+  .modal-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 20; display: flex; flex-direction: column; overflow-y: auto; }
+  .modal-overlay[hidden] { display: none; }
+  .modal { padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px calc(env(safe-area-inset-bottom, 0px) + 20px); display: flex; flex-direction: column; gap: 14px; max-width: 480px; margin: 0 auto; width: 100%; }
+  .modal h2 { font-size: 1.15rem; margin: 0; }
+  input[type=date] {
+    font-family: var(--font-ui); font-size: 0.9rem; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.5rem 0.6rem;
+  }
+  .form-erreur { color: var(--red); font-size: 0.85rem; margin: 0; min-height: 1.2em; }
+  .form-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+  .form-actions button { flex: 1; }
+  .btn-annuler { background: var(--surface-2); color: var(--text); border: 1px solid var(--border) !important; }
+  .btn-supprimer { background: transparent; color: var(--red); border: 1px solid var(--red) !important; flex: 0 0 auto !important; }
+
+  .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 10; }
   .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; padding: 4px 22px; font-family: inherit; cursor: pointer; color: var(--text-faint); }
   .nav-btn svg { stroke: var(--text-faint); }
   .nav-btn.active { color: var(--gold); }
@@ -49,7 +92,7 @@
   .nav-btn span { font-size: 11px; }
   .nav-btn.active span { font-weight: 600; }
 
-  .toast { position: absolute; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 8px 14px; border-radius: 999px; white-space: nowrap; box-shadow: 0 6px 16px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.2s ease; }
+  .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 8px 14px; border-radius: 999px; white-space: nowrap; box-shadow: 0 6px 16px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.2s ease; z-index: 25; }
   .toast.visible { opacity: 1; }
 </style>
 </head>
@@ -78,18 +121,67 @@
 
   <main>
     <section id="view-liste" class="view active">
-      <p class="view-placeholder" data-i18n="viewListePlaceholder">Vue Liste -- à venir (voir l'issue #3).</p>
+      <div class="chip-row">
+        <select class="chip-select" id="filtre-discipline"></select>
+        <select class="chip-select" id="filtre-distance"></select>
+      </div>
+      <div class="card-list" id="liste-cartes"></div>
+      <p class="view-empty" id="liste-vide" data-i18n="listeEmpty" hidden>Aucune sortie enregistrée -- ajoute la première avec le bouton +.</p>
     </section>
     <section id="view-carte" class="view">
       <p class="view-placeholder" data-i18n="viewCartePlaceholder">Vue Carte -- à venir (voir l'issue #7).</p>
     </section>
   </main>
 
-  <button class="fab" id="fab-add" data-i18n-title="fabTitle" title="Ajouter une sortie -- bientôt disponible">
+  <button class="fab" id="fab-add" data-i18n-title="fabTitle" title="Ajouter une sortie">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1a1206" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
   </button>
 
   <div class="toast" id="toast" hidden></div>
+
+  <div class="modal-overlay" id="form-overlay" hidden>
+    <div class="modal">
+      <h2 id="form-titre" data-i18n="formTitreAjout">Nouvelle sortie</h2>
+      <form id="form-entree">
+        <div class="field">
+          <label for="champ-lieu" data-i18n="formLieuLabel">Lieu</label>
+          <input type="text" id="champ-lieu" required data-i18n-placeholder="formLieuPlaceholder" placeholder="Ex. Club Les Aigles 77">
+        </div>
+        <div class="field">
+          <label for="champ-cible" data-i18n="formCibleLabel">Cible / blason</label>
+          <input type="text" id="champ-cible" data-i18n-placeholder="formCiblePlaceholder" placeholder="Ex. Blason 18 m">
+        </div>
+        <div class="field">
+          <label for="champ-discipline" data-i18n="formDisciplineLabel">Discipline</label>
+          <input type="text" id="champ-discipline" data-i18n-placeholder="formDisciplinePlaceholder" placeholder="Ex. Indoor, Field, 3D...">
+        </div>
+        <div class="field">
+          <label for="champ-distance" data-i18n="formDistanceLabel">Distance</label>
+          <input type="text" id="champ-distance" data-i18n-placeholder="formDistancePlaceholder" placeholder="Ex. 18 m, Parcours varié...">
+        </div>
+        <div class="field">
+          <label for="champ-meteo" data-i18n="formMeteoLabel">Météo</label>
+          <select id="champ-meteo">
+            <option value="aucune" data-i18n="meteoAucune">Non précisé</option>
+            <option value="ensoleille" data-i18n="meteoEnsoleille">Ensoleillé</option>
+            <option value="nuageux" data-i18n="meteoNuageux">Nuageux</option>
+            <option value="pluie" data-i18n="meteoPluie">Pluie</option>
+            <option value="vent" data-i18n="meteoVent">Vent</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="champ-date" data-i18n="formDateLabel">Date</label>
+          <input type="date" id="champ-date" required>
+        </div>
+        <p class="form-erreur" id="form-erreur" data-i18n="formLieuRequis" hidden>Le lieu est obligatoire.</p>
+        <div class="form-actions">
+          <button type="button" class="btn-supprimer" id="form-supprimer" data-i18n="formSupprimer" hidden>Supprimer</button>
+          <button type="button" class="btn-annuler" id="form-annuler" data-i18n="formAnnuler">Annuler</button>
+          <button type="submit" class="btn-primary" data-i18n="formSauvegarder">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <nav class="bottom-nav">
     <button class="nav-btn active" data-view="liste">

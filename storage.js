@@ -84,6 +84,29 @@ function ajouterEntree(entree) {
   );
 }
 
+function modifierEntree(entree) {
+  if (!entree || !entree.id) {
+    return Promise.reject(new Error("modifierEntree requiert un id."));
+  }
+  if (!entree.lieu || !entree.lieu.trim()) {
+    return Promise.reject(new Error("Une entrée doit avoir un lieu."));
+  }
+  const complete = {
+    ...entree,
+    lieu: entree.lieu.trim(),
+    meteo: METEO_OPTIONS.includes(entree.meteo) ? entree.meteo : "aucune",
+  };
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction("entrees", "readwrite");
+        transaction.objectStore("entrees").put(complete);
+        transaction.oncomplete = () => resolve(complete);
+        transaction.onerror = () => reject(transaction.error);
+      })
+  );
+}
+
 function listerEntrees() {
   return _ouvrirDB().then(
     (db) =>
