@@ -6,6 +6,9 @@
 let currentLanguage = localStorage.getItem("fletchlog_lang") || "fr";
 let entreesActuelles = [];
 let idEnEdition = null;
+let photosCache = {}; // photoId -> URL d'objet (voir précharcherPhotos)
+let photoSelectionnee = null; // File choisi dans le formulaire, pas encore compressé/stocké
+let photoRetiree = false; // true si l'utilisateur a retiré la photo existante en édition
 
 const ICONE_PIN =
   '<svg width="13" height="13" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg>';
@@ -138,9 +141,11 @@ function carteHTML(entree) {
       ? `<div class="carte-meteo">${meteoIcone}<span>${_echapperTexte(t(currentLanguage, "meteo" + entree.meteo.charAt(0).toUpperCase() + entree.meteo.slice(1)))}</span></div>`
       : "";
   const sousLigne = [entree.distance, formaterDate(entree.date)].filter((v) => v && v.trim()).join(" · ");
+  const urlPhoto = entree.photoId ? photosCache[entree.photoId] : null;
+  const vignette = urlPhoto ? `<img src="${urlPhoto}" alt="">` : ICONE_PLACEHOLDER_PHOTO;
   return `
     <button type="button" class="carte-entree" data-id="${_echapperAttr(entree.id)}">
-      <div class="carte-vignette">${ICONE_PLACEHOLDER_PHOTO}</div>
+      <div class="carte-vignette">${vignette}</div>
       <div class="carte-texte">
         <div class="carte-titre">${ICONE_PIN}<span>${_echapperTexte(entree.lieu)}</span></div>
         <div class="carte-meta">
@@ -176,12 +181,101 @@ function rafraichirListe() {
   });
 }
 
+function revoquerPhotosCache() {
+  Object.values(photosCache).forEach((url) => URL.revokeObjectURL(url));
+  photosCache = {};
+}
+
+function precharcherPhotos(entrees) {
+  revoquerPhotosCache();
+  const idsPhotos = [...new Set(entrees.map((e) => e.photoId).filter(Boolean))];
+  return Promise.all(
+    idsPhotos.map((id) =>
+      obtenirPhoto(id).then((blob) => {
+        if (blob) photosCache[id] = URL.createObjectURL(blob);
+      })
+    )
+  );
+}
+
 function chargerEntrees() {
-  return listerEntrees().then((entrees) => {
-    entreesActuelles = entrees;
-    rafraichirFiltres();
-    rafraichirListe();
+  return listerEntrees()
+    .then((entrees) => {
+      entreesActuelles = entrees;
+      return precharcherPhotos(entrees);
+    })
+    .then(() => {
+      rafraichirFiltres();
+      rafraichirListe();
+    });
+}
+
+// ---- Photo (issue #4) ----------------------------------------------
+
+let urlApercuTemporaire = null; // object URL du fichier tout juste choisi, pas encore stocké
+
+function compresserPhoto(fichier) {
+  const LONGUEUR_MAX = 1600;
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const url = URL.createObjectURL(fichier);
+    image.onload = () => {
+      let { width, height } = image;
+      if (width > height && width > LONGUEUR_MAX) {
+        height = Math.round((height * LONGUEUR_MAX) / width);
+        width = LONGUEUR_MAX;
+      } else if (height >= width && height > LONGUEUR_MAX) {
+        width = Math.round((width * LONGUEUR_MAX) / height);
+        height = LONGUEUR_MAX;
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(image, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          URL.revokeObjectURL(url);
+          if (blob) resolve(blob);
+          else reject(new Error("Compression de la photo impossible."));
+        },
+        "image/jpeg",
+        0.7
+      );
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Image invalide."));
+    };
+    image.src = url;
   });
+}
+
+function afficherApercuPlaceholder() {
+  document.getElementById("photo-preview").innerHTML = ICONE_PLACEHOLDER_PHOTO;
+  document.getElementById("photo-retirer").hidden = true;
+}
+
+function afficherApercuUrl(url) {
+  document.getElementById("photo-preview").innerHTML = `<img src="${url}" alt="">`;
+  document.getElementById("photo-retirer").hidden = false;
+}
+
+function resoudrePhotoPourEnvoi(entreeExistante) {
+  const ancienPhotoId = entreeExistante ? entreeExistante.photoId : null;
+
+  if (photoSelectionnee) {
+    return compresserPhoto(photoSelectionnee)
+      .then((blob) => enregistrerPhoto(blob))
+      .then((nouvelId) => {
+        if (ancienPhotoId) supprimerPhoto(ancienPhotoId).catch(() => {});
+        return nouvelId;
+      });
+  }
+  if (photoRetiree) {
+    if (ancienPhotoId) supprimerPhoto(ancienPhotoId).catch(() => {});
+    return Promise.resolve(null);
+  }
+  return Promise.resolve(ancienPhotoId);
 }
 
 // ---- Formulaire d'ajout/édition ------------------------------------
@@ -201,6 +295,19 @@ function ouvrirFormulaire(id) {
   document.getElementById("form-erreur").hidden = true;
   document.getElementById("form-supprimer").hidden = !entree;
 
+  photoSelectionnee = null;
+  photoRetiree = false;
+  document.getElementById("champ-photo").value = "";
+  if (urlApercuTemporaire) {
+    URL.revokeObjectURL(urlApercuTemporaire);
+    urlApercuTemporaire = null;
+  }
+  if (entree && entree.photoId && photosCache[entree.photoId]) {
+    afficherApercuUrl(photosCache[entree.photoId]);
+  } else {
+    afficherApercuPlaceholder();
+  }
+
   document.getElementById("form-overlay").hidden = false;
   document.getElementById("champ-lieu").focus();
 }
@@ -218,20 +325,21 @@ function soumettreFormulaire(evenement) {
     return;
   }
 
-  const donnees = {
-    lieu,
-    cible: document.getElementById("champ-cible").value.trim(),
-    discipline: document.getElementById("champ-discipline").value.trim(),
-    distance: document.getElementById("champ-distance").value.trim(),
-    meteo: document.getElementById("champ-meteo").value,
-    date: document.getElementById("champ-date").value,
-  };
+  const entreeExistante = idEnEdition ? entreesActuelles.find((e) => e.id === idEnEdition) : null;
 
-  const operation = idEnEdition
-    ? modifierEntree({ ...entreesActuelles.find((e) => e.id === idEnEdition), ...donnees })
-    : ajouterEntree(donnees);
-
-  operation
+  resoudrePhotoPourEnvoi(entreeExistante)
+    .then((photoId) => {
+      const donnees = {
+        lieu,
+        cible: document.getElementById("champ-cible").value.trim(),
+        discipline: document.getElementById("champ-discipline").value.trim(),
+        distance: document.getElementById("champ-distance").value.trim(),
+        meteo: document.getElementById("champ-meteo").value,
+        date: document.getElementById("champ-date").value,
+        photoId,
+      };
+      return idEnEdition ? modifierEntree({ ...entreeExistante, ...donnees }) : ajouterEntree(donnees);
+    })
     .then(() => {
       fermerFormulaire();
       afficherToast(t(currentLanguage, "toastEnregistre"));
@@ -270,13 +378,16 @@ function demanderConfirmation(message) {
 
 function supprimerDepuisFormulaire() {
   if (!idEnEdition) return;
+  const entree = entreesActuelles.find((e) => e.id === idEnEdition);
   demanderConfirmation(t(currentLanguage, "confirmSuppression")).then((confirme) => {
     if (!confirme) return;
-    supprimerEntree(idEnEdition).then(() => {
-      fermerFormulaire();
-      afficherToast(t(currentLanguage, "toastSupprime"));
-      chargerEntrees();
-    });
+    supprimerEntree(idEnEdition)
+      .then(() => (entree && entree.photoId ? supprimerPhoto(entree.photoId).catch(() => {}) : null))
+      .then(() => {
+        fermerFormulaire();
+        afficherToast(t(currentLanguage, "toastSupprime"));
+        chargerEntrees();
+      });
   });
 }
 
@@ -285,6 +396,25 @@ function initFormulaire() {
   document.getElementById("form-annuler").addEventListener("click", fermerFormulaire);
   document.getElementById("form-supprimer").addEventListener("click", supprimerDepuisFormulaire);
   document.getElementById("form-entree").addEventListener("submit", soumettreFormulaire);
+  document.getElementById("champ-photo").addEventListener("change", (evenement) => {
+    const fichier = evenement.target.files[0];
+    if (!fichier) return;
+    photoSelectionnee = fichier;
+    photoRetiree = false;
+    if (urlApercuTemporaire) URL.revokeObjectURL(urlApercuTemporaire);
+    urlApercuTemporaire = URL.createObjectURL(fichier);
+    afficherApercuUrl(urlApercuTemporaire);
+  });
+  document.getElementById("photo-retirer").addEventListener("click", () => {
+    photoSelectionnee = null;
+    photoRetiree = true;
+    document.getElementById("champ-photo").value = "";
+    if (urlApercuTemporaire) {
+      URL.revokeObjectURL(urlApercuTemporaire);
+      urlApercuTemporaire = null;
+    }
+    afficherApercuPlaceholder();
+  });
   document.getElementById("filtre-discipline").addEventListener("change", () => {
     document.getElementById("filtre-discipline").classList.toggle("active", document.getElementById("filtre-discipline").value !== "");
     rafraichirListe();

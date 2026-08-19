@@ -96,6 +96,18 @@
   .confirm-actions button { flex: 1; }
   .confirm-actions .btn-supprimer { flex: 1 !important; }
 
+  /* Sélecteur de photo (issue #4) -- <label> stylé en bouton pour
+     déclencher l'input file caché, plus simple que masquer/reproduire
+     le rendu natif du bouton "Parcourir" via d'autres moyens. */
+  .photo-picker { display: flex; align-items: center; gap: 12px; }
+  .photo-preview { width: 64px; height: 64px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+  .photo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-picker-actions { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+  .photo-bouton-choisir { font-family: var(--font-ui); font-size: 0.85rem; font-weight: 600; padding: 0.5rem 0.85rem; border-radius: 8px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); cursor: pointer; }
+  #photo-retirer { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+
+  .carte-vignette img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block; }
+
   .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 10; }
   .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; padding: 4px 22px; font-family: inherit; cursor: pointer; color: var(--text-faint); }
   .nav-btn svg { stroke: var(--text-faint); }
@@ -184,6 +196,19 @@
         <div class="field">
           <label for="champ-date" data-i18n="formDateLabel">Date</label>
           <input type="date" id="champ-date" required>
+        </div>
+        <div class="field">
+          <label data-i18n="formPhotoLabel">Photo</label>
+          <div class="photo-picker">
+            <div class="photo-preview" id="photo-preview">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.8"/><circle cx="12" cy="12" r="1.2" fill="var(--text-faint)" stroke="none"/></svg>
+            </div>
+            <div class="photo-picker-actions">
+              <label class="photo-bouton-choisir" for="champ-photo" data-i18n="formPhotoChoisir">Choisir une photo</label>
+              <input type="file" accept="image/*" capture="environment" id="champ-photo" hidden>
+              <button type="button" class="btn-supprimer" id="photo-retirer" data-i18n="formPhotoRetirer" hidden>Retirer</button>
+            </div>
+          </div>
         </div>
         <p class="form-erreur" id="form-erreur" data-i18n="formLieuRequis" hidden>Le lieu est obligatoire.</p>
         <div class="form-actions">

@@ -3,7 +3,8 @@
  * l'API brute suffit ici, pas de lib ajoutée pour ça). Base pour tout
  * le reste (#3 vue Liste, #4 photo, #6 GPS, #7 vue Carte) -- ce
  * fichier ne construit aucune UI, juste ajouterEntree/listerEntrees/
- * supprimerEntree (issue #2).
+ * modifierEntree/supprimerEntree (issue #2) et enregistrerPhoto/
+ * obtenirPhoto/supprimerPhoto (issue #4).
  *
  * Schéma d'une entrée (store "entrees") :
  *   id          string   généré (crypto.randomUUID())
@@ -133,6 +134,46 @@ function supprimerEntree(id) {
       new Promise((resolve, reject) => {
         const transaction = db.transaction("entrees", "readwrite");
         transaction.objectStore("entrees").delete(id);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      })
+  );
+}
+
+// ---- Store "photos" (issue #4) -- clé explicite (photoId), pas de
+// keyPath sur le Blob lui-même, voir onupgradeneeded ci-dessus. ------
+
+function enregistrerPhoto(blob) {
+  const id = crypto.randomUUID();
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction("photos", "readwrite");
+        transaction.objectStore("photos").put(blob, id);
+        transaction.oncomplete = () => resolve(id);
+        transaction.onerror = () => reject(transaction.error);
+      })
+  );
+}
+
+function obtenirPhoto(photoId) {
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction("photos", "readonly");
+        const requete = transaction.objectStore("photos").get(photoId);
+        requete.onsuccess = () => resolve(requete.result || null);
+        requete.onerror = () => reject(requete.error);
+      })
+  );
+}
+
+function supprimerPhoto(photoId) {
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction("photos", "readwrite");
+        transaction.objectStore("photos").delete(photoId);
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
       })
