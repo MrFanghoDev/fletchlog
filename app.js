@@ -17,7 +17,7 @@ const ICONE_PIN =
 const ICONE_CHEVRON =
   '<svg class="carte-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>';
 const ICONE_PLACEHOLDER_PHOTO =
-  '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.8"/><circle cx="12" cy="12" r="1.2" fill="var(--text-faint)" stroke="none"/></svg>';
+  '<svg width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="15.7" rx="7.2" ry="3" fill="none" stroke="var(--text-faint)" stroke-width="1.6"/><path d="M12 2.4C8.5 2.4 6.2 4.7 6.2 7.5c0 4.6 5.8 9.3 5.8 9.3s5.8-4.7 5.8-9.3c0-2.8-2.3-5.1-5.8-5.1Z" fill="var(--text-faint)"/></svg>';
 
 const ICONES_METEO = {
   ensoleille:

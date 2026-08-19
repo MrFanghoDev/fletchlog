@@ -101,25 +101,34 @@ pas la reperdre :
   (deux anneaux concentriques) **aplatie** en ellipses pour un effet
   de perspective ("vue de côté"), avec un **map pin** dessiné
   par-dessus dont la pointe touche un petit point central marquant le
-  milieu de la cible. Direction validée par l'utilisateur après deux
-  itérations visuelles (mockups publiés en Artifact, jamais appliquées
-  au dépôt avant validation explicite) -- une première piste
-  (silhouette pin ovale + empennage à 3 pales) écartée, l'empennage
-  jugé superflu. `icon-192.png`/`icon-512.png` régénérés depuis ce
-  nouveau `icon.svg` (même commande `magick`+`librsvg` que d'habitude).
+  milieu de la cible. Direction validée par l'utilisateur après
+  plusieurs itérations visuelles (mockups publiés en Artifact, jamais
+  appliquées au dépôt avant validation explicite) -- une première
+  piste (silhouette pin ovale + empennage à 3 pales) écartée,
+  l'empennage jugé superflu. Le tracé du pin utilisé dans `icon.svg`
+  est **le pin "large" d'origine** (`M12 2C7.6 2 4 5.6 4 10c0 6 8 12
+  8 12s8-6 8-12c0-4.4-3.6-8-8-8Z`, le même que `ICONE_PIN`/
+  `ICONE_PIN_CARTE` dans `app.js`) -- une variante affinée testée un
+  temps a été appliquée puis explicitement annulée par l'utilisateur
+  ("remets le pin map precedent"), donc pas de tracé de pin distinct
+  à maintenir en plus de celui déjà utilisé ailleurs dans l'app.
+  `icon-192.png`/`icon-512.png` régénérés depuis ce nouveau `icon.svg`
+  (même commande `magick`+`librsvg` que d'habitude).
   **Le pin générique de la vue Carte (`ICONE_PIN_CARTE` dans
   `app.js`) n'a volontairement PAS été aligné sur ce nouveau tracé**
+  (mêmes proportions, mais rendu séparément, sans le fond/la cible)
   -- question posée explicitement, réponse : non, les deux restent
   indépendants.
-  **Non fait non plus, hors périmètre de ce ticket** : les petites
-  icônes de marque en ligne (24×24, trait fin) utilisées comme logo
-  compact dans les en-têtes d'`index.html`/`app.html`/`aide.html`, et
-  le placeholder de vignette photo (`ICONE_PLACEHOLDER_PHOTO` dans
-  `app.js`) -- gardent l'ancien motif "cercles concentriques" simple.
-  Une vraie divergence visuelle existe désormais entre l'icône d'app
-  (nouveau pin+cible aplatie) et ces petites icônes de navigation
-  (ancien bullseye) -- signalé ici pour ne pas l'oublier, pas encore
-  un ticket dédié.
+  **Petites icônes de marque mises à jour en cohérence** (même
+  motif ellipse aplatie + pin, sans fond ni point central, adapté
+  pour rester lisible en 24-30px) : logo d'en-tête d'`index.html`
+  (`.mark`), `app.html` (`.brand`), `aide.html` (`.titre-lien`), et
+  le placeholder photo (`ICONE_PLACEHOLDER_PHOTO` dans `app.js` +
+  le placeholder statique du sélecteur de photo dans `app.html`).
+  **Laissée telle quelle, hors périmètre** : la petite icône
+  "position acquise" à côté du statut GPS dans le formulaire
+  (`app.html`, motif bullseye original) -- usage sémantique différent
+  (indicateur d'état, pas une marque), non signalée comme à changer.
 
 ## Conventions techniques (à compléter au fil du code)
 
