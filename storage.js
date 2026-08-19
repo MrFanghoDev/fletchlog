@@ -3,8 +3,9 @@
  * l'API brute suffit ici, pas de lib ajoutée pour ça). Base pour tout
  * le reste (#3 vue Liste, #4 photo, #6 GPS, #7 vue Carte) -- ce
  * fichier ne construit aucune UI, juste ajouterEntree/listerEntrees/
- * modifierEntree/supprimerEntree (issue #2) et enregistrerPhoto/
- * obtenirPhoto/supprimerPhoto (issue #4).
+ * modifierEntree/supprimerEntree (issue #2), enregistrerPhoto/
+ * obtenirPhoto/supprimerPhoto (issue #4), et restaurerEntree/
+ * restaurerPhoto pour l'import d'une sauvegarde (issue #5).
  *
  * Schéma d'une entrée (store "entrees") :
  *   id          string   généré (crypto.randomUUID())
@@ -206,6 +207,48 @@ function supprimerPhoto(photoId) {
         transaction.objectStore("photos").delete(photoId);
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
+      })
+  );
+}
+
+// ---- Import d'une sauvegarde (issue #5) -----------------------------
+// restaurerEntree/restaurerPhoto préservent l'id/photoId exact de la
+// sauvegarde (contrairement à ajouterEntree/enregistrerPhoto, qui en
+// génèrent toujours un nouveau) -- add() plutôt que put() : rejette
+// silencieusement (résout false) si l'id existe déjà, plutôt que
+// d'écraser une entrée déjà présente. Décidé en écrivant ce ticket :
+// ré-importer deux fois la même sauvegarde doit être sans effet la
+// deuxième fois (idempotent), pas dupliquer ni écraser une donnée
+// éventuellement plus récente déjà sur l'appareil.
+
+function restaurerEntree(entree) {
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction("entrees", "readwrite");
+        const requete = transaction.objectStore("entrees").add(entree);
+        requete.onsuccess = () => resolve(true);
+        requete.onerror = (evenement) => {
+          evenement.preventDefault();
+          resolve(false);
+        };
+        transaction.onerror = (evenement) => evenement.preventDefault();
+      })
+  );
+}
+
+function restaurerPhoto(photoId, blob) {
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction("photos", "readwrite");
+        const requete = transaction.objectStore("photos").add(blob, photoId);
+        requete.onsuccess = () => resolve(true);
+        requete.onerror = (evenement) => {
+          evenement.preventDefault();
+          resolve(false);
+        };
+        transaction.onerror = (evenement) => evenement.preventDefault();
       })
   );
 }

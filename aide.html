@@ -26,6 +26,15 @@
   article.aide-section h2 { font-size: 1.1rem; margin-bottom: 0.5rem; }
   article.aide-section h3 { font-size: 0.95rem; margin: 1.25rem 0 0.4rem; color: var(--gold); }
   article.aide-section p { line-height: 1.6; font-size: 0.92rem; color: var(--text); }
+
+  .sauvegarde-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 1rem; }
+  .bouton-secondaire {
+    font-family: var(--font-ui); font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    padding: 0.6rem 1rem; border-radius: 8px; background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .sauvegarde-statut { font-size: 0.85rem; color: var(--text-muted); margin-top: 0.6rem; }
+  .sauvegarde-statut.erreur { color: var(--red); }
   article.aide-section ol { line-height: 1.8; font-size: 0.92rem; padding-left: 1.3rem; }
 
   footer { margin-top: 3rem; color: var(--text-faint); font-size: 0.78rem; text-align: center; }
@@ -86,7 +95,13 @@
 
     <article class="aide-section" id="s3">
       <h2 data-i18n="aideS3Title">Tes données restent sur ton téléphone</h2>
-      <p data-i18n="aideS3Text">FletchLog ne dépend d'aucun serveur : tout est stocké localement sur ton appareil. Une fonctionnalité d'export/import est prévue pour sauvegarder ton carnet ou changer de téléphone.</p>
+      <p data-i18n="aideS3Text">FletchLog ne dépend d'aucun serveur : tout est stocké localement sur ton appareil. Exporte régulièrement ton carnet pour le sauvegarder ou changer de téléphone.</p>
+      <div class="sauvegarde-actions">
+        <button type="button" class="btn-primary" id="bouton-export" data-i18n="exportBouton">Exporter mon carnet</button>
+        <label class="bouton-secondaire" for="champ-import" data-i18n="importBouton">Importer une sauvegarde</label>
+        <input type="file" id="champ-import" accept=".zip,application/zip" hidden>
+      </div>
+      <p class="sauvegarde-statut" id="sauvegarde-statut" hidden></p>
     </article>
 
     <footer>
@@ -101,6 +116,9 @@
 <script src="theme.js"></script>
 <script src="sw-register.js"></script>
 <script src="version.js"></script>
+<script src="jszip.min.js"></script>
+<script src="storage.js"></script>
+<script src="export-import.js"></script>
 <script>
   let currentLanguage = localStorage.getItem("fletchlog_lang") || "fr";
 
@@ -124,6 +142,48 @@
 
   applyTranslations();
   document.getElementById("footer-version").textContent = FLETCHLOG_VERSION;
+
+  function afficherStatutSauvegarde(cle, valeurs, estErreur) {
+    const statut = document.getElementById("sauvegarde-statut");
+    statut.textContent = valeurs ? tf(currentLanguage, cle, valeurs) : t(currentLanguage, cle);
+    statut.classList.toggle("erreur", !!estErreur);
+    statut.hidden = false;
+  }
+
+  document.getElementById("bouton-export").addEventListener("click", () => {
+    const bouton = document.getElementById("bouton-export");
+    bouton.disabled = true;
+    afficherStatutSauvegarde("exportEnCours");
+    exporterSauvegarde()
+      .then((blob) => livrerExport(blob))
+      .then(() => {
+        document.getElementById("sauvegarde-statut").hidden = true;
+      })
+      .catch((erreur) => {
+        console.warn("Échec de l'export :", erreur);
+        afficherStatutSauvegarde("exportErreur", null, true);
+      })
+      .finally(() => {
+        bouton.disabled = false;
+      });
+  });
+
+  document.getElementById("champ-import").addEventListener("change", (evenement) => {
+    const fichier = evenement.target.files[0];
+    if (!fichier) return;
+    afficherStatutSauvegarde("importEnCours");
+    importerSauvegarde(fichier)
+      .then(({ importees, ignorees }) => {
+        afficherStatutSauvegarde("importResultat", { n: importees, m: ignorees });
+      })
+      .catch((erreur) => {
+        console.warn("Échec de l'import :", erreur);
+        afficherStatutSauvegarde("importErreur", null, true);
+      })
+      .finally(() => {
+        evenement.target.value = "";
+      });
+  });
 </script>
 </body>
 </html>

@@ -86,7 +86,14 @@ const TRANSLATIONS = {
     aideS2Title: "Utiliser FletchLog",
     aideS2Text: "Le projet est en tout début de construction : la navigation entre les vues Liste et Carte existe déjà, mais l'ajout réel d'une sortie (formulaire, photo, géolocalisation) arrive au fil des prochaines mises à jour. Le détail de chaque fonctionnalité et son avancement se suivent sur la page Issues du dépôt GitHub.",
     aideS3Title: "Tes données restent sur ton téléphone",
-    aideS3Text: "FletchLog ne dépend d'aucun serveur : tout est stocké localement sur ton appareil. Une fonctionnalité d'export/import est prévue pour sauvegarder ton carnet ou changer de téléphone.",
+    aideS3Text: "FletchLog ne dépend d'aucun serveur : tout est stocké localement sur ton appareil. Exporte régulièrement ton carnet pour le sauvegarder ou changer de téléphone.",
+    exportBouton: "Exporter mon carnet",
+    importBouton: "Importer une sauvegarde",
+    exportEnCours: "Préparation de l'export...",
+    exportErreur: "Échec de l'export.",
+    importEnCours: "Import en cours...",
+    importErreur: "Échec de l'import -- fichier invalide ou corrompu.",
+    importResultat: "{n} sortie(s) importée(s), {m} déjà présente(s) (ignorée(s)).",
   },
   en: {
     siteFooterCredit: "Built for the Archers Libres de Fontaine-le-Port ·",
@@ -170,11 +177,29 @@ const TRANSLATIONS = {
     aideS2Title: "Using FletchLog",
     aideS2Text: "The project is at a very early stage: navigating between the List and Map views already works, but actually adding a session (form, photo, geolocation) is landing over the next updates. Track each feature and its progress on the GitHub repository's Issues page.",
     aideS3Title: "Your data stays on your phone",
-    aideS3Text: "FletchLog doesn't depend on any server: everything is stored locally on your device. An export/import feature is planned to back up your log or switch phones.",
+    aideS3Text: "FletchLog doesn't depend on any server: everything is stored locally on your device. Export your log regularly to back it up or switch phones.",
+    exportBouton: "Export my log",
+    importBouton: "Import a backup",
+    exportEnCours: "Preparing export...",
+    exportErreur: "Export failed.",
+    importEnCours: "Importing...",
+    importErreur: "Import failed -- invalid or corrupted file.",
+    importResultat: "{n} session(s) imported, {m} already present (skipped).",
   },
 };
 
 function t(lang, key) {
   const dict = TRANSLATIONS[lang] || TRANSLATIONS.fr;
   return dict[key] !== undefined ? dict[key] : (TRANSLATIONS.fr[key] || key);
+}
+
+// t() avec interpolation simple ("{n}" -> valeurs.n) -- juste pour le
+// résultat d'import (#5), pas de moteur i18n plus complet pour un seul
+// message dynamique.
+function tf(lang, key, valeurs) {
+  let texte = t(lang, key);
+  Object.keys(valeurs).forEach((cle) => {
+    texte = texte.replace(`{${cle}}`, valeurs[cle]);
+  });
+  return texte;
 }

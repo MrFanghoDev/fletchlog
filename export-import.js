@@ -1,0 +1,98 @@
+/* Export/import d'une sauvegarde complète (issue #5) -- seul filet de
+ * sécurité prévu pour ce projet (pas de synchro serveur, voir
+ * CLAUDE.md). Archive .zip (JSZip, vendoré -- voir jszip.min.js et le
+ * principe de dépendances dans le CLAUDE.md global) contenant
+ * entrees.json (métadonnées de toutes les entrées) + un fichier par
+ * photo sous photos/<photoId>.jpg -- pas de base64, ça gonflerait
+ * l'archive d'environ un tiers pour rien.
+ *
+ * Comportement à l'import décidé en écrivant ce ticket : un id déjà
+ * présent est ignoré, jamais écrasé ni dupliqué -- réimporter deux
+ * fois la même sauvegarde doit être sans effet la seconde fois (voir
+ * storage.js::restaurerEntree/restaurerPhoto, qui portent cette
+ * garantie au niveau de la base plutôt qu'ici).
+ */
+
+function _nomFichierExport() {
+  return `fletchlog-export-${new Date().toISOString().slice(0, 10)}.zip`;
+}
+
+function exporterSauvegarde() {
+  return listerEntrees().then((entrees) => {
+    const zip = new JSZip();
+    zip.file(
+      "entrees.json",
+      JSON.stringify({ version: 1, exporteLe: new Date().toISOString(), entrees }, null, 2)
+    );
+
+    const idsPhotos = [...new Set(entrees.map((e) => e.photoId).filter(Boolean))];
+    return Promise.all(
+      idsPhotos.map((id) =>
+        obtenirPhoto(id).then((blob) => {
+          if (blob) zip.file(`photos/${id}.jpg`, blob);
+        })
+      )
+    ).then(() => zip.generateAsync({ type: "blob" }));
+  });
+}
+
+function _telechargerBlob(blob, nomFichier) {
+  const url = URL.createObjectURL(blob);
+  const lien = document.createElement("a");
+  lien.href = url;
+  lien.download = nomFichier;
+  document.body.appendChild(lien);
+  lien.click();
+  document.body.removeChild(lien);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function livrerExport(blob) {
+  const nomFichier = _nomFichierExport();
+  // Partage natif Android si possible (voir CLAUDE.md) -- repli sur un
+  // lien de téléchargement classique sinon, ou si le partage échoue/est
+  // annulé par l'utilisateur.
+  if (window.File && navigator.canShare) {
+    const fichier = new File([blob], nomFichier, { type: "application/zip" });
+    if (navigator.canShare({ files: [fichier] })) {
+      return navigator.share({ files: [fichier], title: nomFichier }).catch(() => {
+        _telechargerBlob(blob, nomFichier);
+      });
+    }
+  }
+  _telechargerBlob(blob, nomFichier);
+  return Promise.resolve();
+}
+
+function importerSauvegarde(fichier) {
+  return JSZip.loadAsync(fichier).then((zip) => {
+    const entreesJson = zip.file("entrees.json");
+    if (!entreesJson) {
+      return Promise.reject(new Error("Archive invalide -- entrees.json introuvable."));
+    }
+    return entreesJson.async("string").then((texte) => {
+      const entrees = (JSON.parse(texte).entrees || []);
+      let importees = 0;
+      let ignorees = 0;
+
+      return entrees
+        .reduce(
+          (promesse, entree) =>
+            promesse.then(() => {
+              const fichierPhoto = entree.photoId ? zip.file(`photos/${entree.photoId}.jpg`) : null;
+              const restaurationPhoto = fichierPhoto
+                ? fichierPhoto.async("blob").then((blob) => restaurerPhoto(entree.photoId, blob))
+                : Promise.resolve();
+              return restaurationPhoto
+                .then(() => restaurerEntree(entree))
+                .then((ajoutee) => {
+                  if (ajoutee) importees += 1;
+                  else ignorees += 1;
+                });
+            }),
+          Promise.resolve()
+        )
+        .then(() => ({ importees, ignorees }));
+    });
+  });
+}

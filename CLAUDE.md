@@ -182,11 +182,29 @@ automatique possible sans build). Affiché dans le footer d'`index.html`
 et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
 `app.html`, qui n'en a pas.
 
+## Export/import (issue #5, décidé)
+
+- **JSZip vendoré** (`jszip.min.js`, v3.10.1, téléchargé depuis unpkg
+  et committé -- jamais chargé depuis un CDN à l'exécution, voir le
+  principe de dépendances du CLAUDE.md global). Dual MIT/GPLv3,
+  compatible avec la licence du dépôt.
+- Archive `.zip` : `entrees.json` (métadonnées de toutes les entrées)
+  + un fichier par photo sous `photos/<photoId>.jpg` -- pas de base64
+  (gonflerait l'archive d'environ un tiers pour rien).
+- **Doublons à l'import : ignorés, jamais écrasés ni dupliqués.**
+  Décidé en écrivant le ticket plutôt que deviné : réimporter deux
+  fois la même sauvegarde doit être sans effet la seconde fois
+  (idempotent) -- `storage.js::restaurerEntree`/`restaurerPhoto`
+  utilisent `add()` (pas `put()`), qui échoue silencieusement
+  (résout `false`) si l'id existe déjà, portant cette garantie au
+  niveau de la base plutôt que dans l'UI.
+- Livraison : `Web Share API` (partage natif Android) si
+  `navigator.canShare` l'accepte, repli sur un lien de téléchargement
+  classique sinon (ou si le partage est annulé/échoue).
+- UI dans `aide.html` (section "Tes données restent sur ton
+  téléphone", cohérent avec le contenu déjà là) -- pas dans `app.html`,
+  qui n'a pas d'écran de réglages.
+
 ## Pas encore tranché
 
-- Format exact de l'export/import (`.zip` via JSZip vendoré vs autre
-  approche) -- décidé en principe, pas encore implémenté.
 - Découpage exact des tickets au-delà du premier jalon.
-- Quand poser le premier tag (à la fin du jalon MVP actuel -- #5, #6,
-  #7 encore ouverts -- ou dès maintenant pour marquer le socle déjà
-  utilisable) : à trancher avec l'utilisateur, pas décidé ici.
