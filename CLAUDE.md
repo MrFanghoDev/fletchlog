@@ -160,8 +160,27 @@ pas la reperdre :
   Node qui testerait une simulation. Plus proche de l'esprit
   "vérification réelle" du projet qu'un test unitaire isolé.
 
+## Versions (décidé 2026-08-19)
+
+Pas de mécanisme comme `setuptools_scm` côté FletchScore/FletchTime
+(dérivation de version depuis les tags git, affichée dans un footer) --
+inapplicable ici, aucun backend Python, aucun paquet à publier. Avant
+cette date, aucune gestion de version du tout : ni tag git, ni Release
+GitHub, ni champ `version` dans `manifest.json` -- seul existait
+`CACHE_NAME` dans `sw.js`, un simple compteur de cache-busting interne
+(incrémenté à chaque ticket qui modifie un fichier déjà précaché, voir
+plus haut), sans rapport avec un numéro de version affiché ou suivi.
+
+Décision : **tags git + Release GitHub aux jalons**, posés à la main
+(pas de CI/build à déclencher comme chez les deux autres projets --
+purement déclaratif, juste un repère dans l'historique). Pas de numéro
+affiché dans l'UI pour l'instant.
+
 ## Pas encore tranché
 
 - Format exact de l'export/import (`.zip` via JSZip vendoré vs autre
   approche) -- décidé en principe, pas encore implémenté.
 - Découpage exact des tickets au-delà du premier jalon.
+- Quand poser le premier tag (à la fin du jalon MVP actuel -- #5, #6,
+  #7 encore ouverts -- ou dès maintenant pour marquer le socle déjà
+  utilisable) : à trancher avec l'utilisateur, pas décidé ici.
