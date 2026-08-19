@@ -53,7 +53,7 @@ function setLanguage(lang) {
   localStorage.setItem("fletchlog_lang", lang);
   applyTranslations();
   rafraichirFiltres();
-  rafraichirListe();
+  rafraichirAffichage();
 }
 
 function initNavigation() {
@@ -215,6 +215,92 @@ function rafraichirListe() {
   });
 }
 
+// ---- Vue Carte (issue #7) -- pins projetés depuis les coordonnées
+// GPS réelles (#6), pas de positions inventées. Représentation
+// stylisée (pas de vraies tuiles géographiques, voir #13 si besoin un
+// jour) : projection linéaire simple sur le rectangle disponible,
+// suffisante pour un carnet perso couvrant une zone restreinte -- pas
+// une vraie projection cartographique.
+
+// #1a1206 en dur, pas var(--goldText) -- pas de token dédié dans
+// theme.css, même choix que le FAB (voir .fab svg) qui fait pareil.
+const ICONE_PIN_CARTE =
+  '<svg viewBox="0 0 24 24"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Z" fill="var(--gold)"/><circle cx="12" cy="10" r="3.1" fill="#1a1206"/></svg>';
+
+function projeterCoordonnees(entrees) {
+  const MARGE = 12; // % de marge de chaque côté, pins jamais collés au bord
+  const lats = entrees.map((e) => e.lat);
+  const lons = entrees.map((e) => e.lon);
+  const latMin = Math.min(...lats);
+  const latMax = Math.max(...lats);
+  const lonMin = Math.min(...lons);
+  const lonMax = Math.max(...lons);
+  return entrees.map((e) => ({
+    ...e,
+    xPct: lonMax === lonMin ? 50 : MARGE + ((e.lon - lonMin) / (lonMax - lonMin)) * (100 - 2 * MARGE),
+    // latitude inversée : plus au nord (lat plus grande) = plus haut à l'écran (y plus petit)
+    yPct: latMax === latMin ? 50 : MARGE + ((latMax - e.lat) / (latMax - latMin)) * (100 - 2 * MARGE),
+  }));
+}
+
+function fermerApercuCarte() {
+  const apercu = document.getElementById("carte-apercu");
+  apercu.hidden = true;
+  apercu.onclick = null;
+  document.querySelectorAll(".pin-carte.active").forEach((p) => p.classList.remove("active"));
+}
+
+function afficherApercuCarte(entree, pinElement) {
+  document.querySelectorAll(".pin-carte.active").forEach((p) => p.classList.remove("active"));
+  pinElement.classList.add("active");
+
+  const titreAffiche = entree.titre && entree.titre.trim() ? entree.titre : entree.lieu;
+  const sousLigne = [entree.distance, formaterDate(entree.date)].filter((v) => v && v.trim()).join(" · ");
+  const urlPhoto = entree.photoId ? photosCache[entree.photoId] : null;
+  const vignette = urlPhoto ? `<img src="${urlPhoto}" alt="">` : ICONE_PLACEHOLDER_PHOTO;
+
+  const apercu = document.getElementById("carte-apercu");
+  apercu.innerHTML = `
+    <div class="carte-vignette">${vignette}</div>
+    <div class="carte-texte">
+      <div class="carte-titre"><span>${_echapperTexte(titreAffiche)}</span></div>
+      <span class="carte-sous">${_echapperTexte(sousLigne)}</span>
+    </div>
+    ${ICONE_CHEVRON}
+  `;
+  apercu.hidden = false;
+  apercu.onclick = () => ouvrirFormulaire(entree.id);
+}
+
+function rafraichirCarte() {
+  const conteneur = document.getElementById("carte-conteneur");
+  const vide = document.getElementById("carte-vide");
+
+  conteneur.querySelectorAll(".pin-carte").forEach((p) => p.remove());
+  fermerApercuCarte();
+
+  const entreesAvecGPS = entreesFiltrees().filter((e) => e.lat != null && e.lon != null);
+  vide.hidden = entreesAvecGPS.length > 0;
+  if (!entreesAvecGPS.length) return;
+
+  projeterCoordonnees(entreesAvecGPS).forEach((entree) => {
+    const bouton = document.createElement("button");
+    bouton.type = "button";
+    bouton.className = "pin-carte";
+    bouton.style.left = `${entree.xPct}%`;
+    bouton.style.top = `${entree.yPct}%`;
+    bouton.dataset.id = entree.id;
+    bouton.innerHTML = ICONE_PIN_CARTE;
+    bouton.addEventListener("click", () => afficherApercuCarte(entree, bouton));
+    conteneur.appendChild(bouton);
+  });
+}
+
+function rafraichirAffichage() {
+  rafraichirListe();
+  rafraichirCarte();
+}
+
 function revoquerPhotosCache() {
   Object.values(photosCache).forEach((url) => URL.revokeObjectURL(url));
   photosCache = {};
@@ -240,7 +326,7 @@ function chargerEntrees() {
     })
     .then(() => {
       rafraichirFiltres();
-      rafraichirListe();
+      rafraichirAffichage();
     });
 }
 
@@ -537,10 +623,10 @@ function initFormulaire() {
     document.getElementById(id).addEventListener("change", () => {
       const select = document.getElementById(id);
       select.classList.toggle("active", select.value !== "");
-      rafraichirListe();
+      rafraichirAffichage();
     });
   });
-  document.getElementById("recherche-commentaire").addEventListener("input", () => rafraichirListe());
+  document.getElementById("recherche-commentaire").addEventListener("input", () => rafraichirAffichage());
 }
 
 applyTranslations();

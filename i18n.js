@@ -22,7 +22,7 @@ const TRANSLATIONS = {
 
     navListe: "Liste",
     navCarte: "Carte",
-    viewCartePlaceholder: "Vue Carte -- à venir (voir l'issue #7).",
+    carteEmpty: "Aucune sortie géolocalisée pour l'instant -- les sorties sans position GPS n'apparaissent que dans la Liste.",
     fabTitle: "Ajouter une sortie",
     themeSystemLabel: "Thème système",
     themeLightLabel: "Thème clair",
@@ -106,7 +106,7 @@ const TRANSLATIONS = {
 
     navListe: "List",
     navCarte: "Map",
-    viewCartePlaceholder: "Map view -- coming soon (see issue #7).",
+    carteEmpty: "No geotagged session yet -- sessions without a GPS position only show up in the List.",
     fabTitle: "Add a session",
     themeSystemLabel: "System theme",
     themeLightLabel: "Light theme",
