@@ -45,12 +45,32 @@
      dans app.js) seulement au premier passage sur cette vue -- un
      conteneur caché (display:none tant que .view n'est pas .active) a
      une taille nulle, ce qui casse Leaflet s'il est initialisé dessus. */
-  .carte-conteneur { position: relative; height: 65vh; min-height: 320px; border-radius: 16px; overflow: hidden; background: var(--surface-2); }
+  /* height: 65vh puis surchargé en 65dvh -- même piège déjà rencontré
+     sur .app (voir CLAUDE.md, correctif du #3) : vh compte parfois la
+     hauteur totale de l'écran, bandeau du navigateur inclus, ce qui
+     rendait la carte plus haute que l'espace réellement visible et la
+     faisait déborder sous la nav basse fixe sur un vrai appareil. dvh
+     s'ajuste à l'espace effectivement visible ; vh reste en repli pour
+     les navigateurs qui ne connaissent pas dvh. */
+  .carte-conteneur { position: relative; height: 65vh; height: 65dvh; min-height: 320px; border-radius: 16px; overflow: hidden; background: var(--surface-2); }
   #carte-leaflet { position: absolute; inset: 0; width: 100%; height: 100%; background: var(--surface-2); }
   .leaflet-div-icon { background: none; border: none; }
   .pin-carte { display: flex; align-items: flex-end; justify-content: center; overflow: visible; cursor: pointer; }
   .pin-carte svg { width: 28px; height: 28px; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
   .pin-carte.pin-carte-actif svg { width: 38px; height: 38px; }
+  /* Bouton "me localiser" -- contrôle Leaflet custom (voir ControleLocaliser
+     dans app.js), calqué visuellement sur .leaflet-bar natif pour rester
+     cohérent avec les boutons de zoom. */
+  .carte-bouton-localiser {
+    width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border: 2px solid rgba(0,0,0,0.2); border-radius: 4px;
+    color: var(--text); cursor: pointer; padding: 0;
+  }
+  .carte-bouton-localiser:hover { background: var(--surface-2); }
+  .position-actuelle-pastille {
+    width: 14px; height: 14px; border-radius: 50%; background: var(--blue);
+    border: 2px solid var(--surface); box-shadow: 0 0 0 5px color-mix(in srgb, var(--blue) 30%, transparent);
+  }
   /* position: fixed (pas absolute dans .carte-conteneur) -- même
      raisonnement que le FAB/toast/nav (voir le correctif de layout
      du #3) : indépendant de la hauteur calculée du conteneur carte,

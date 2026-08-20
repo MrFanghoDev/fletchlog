@@ -254,6 +254,52 @@ function initCarte() {
     '<a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener">Signaler un problème</a>'
   );
   carteCouchePins = L.layerGroup().addTo(carteMap);
+  new ControleLocaliser().addTo(carteMap);
+}
+
+// Bouton "me localiser" -- contrôle Leaflet custom (calqué visuellement
+// sur .leaflet-bar, voir app.html) plutôt qu'un bouton HTML flottant à
+// part, pour bénéficier gratuitement du positionnement/de l'anti-chevauchement
+// que Leaflet gère déjà pour ses propres contrôles (zoom, attribution).
+const ControleLocaliser = L.Control.extend({
+  options: { position: "topright" },
+  onAdd: function () {
+    const bouton = L.DomUtil.create("button", "carte-bouton-localiser");
+    bouton.type = "button";
+    bouton.title = t(currentLanguage, "carteLocaliserTitre");
+    bouton.setAttribute("aria-label", t(currentLanguage, "carteLocaliserTitre"));
+    bouton.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>';
+    L.DomEvent.disableClickPropagation(bouton);
+    bouton.addEventListener("click", localiserPositionActuelle);
+    return bouton;
+  },
+});
+
+let marqueurPositionActuelle = null;
+
+function localiserPositionActuelle() {
+  if (!("geolocation" in navigator)) {
+    afficherToast(t(currentLanguage, "gpsIndisponible"));
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const point = [position.coords.latitude, position.coords.longitude];
+      if (marqueurPositionActuelle) {
+        marqueurPositionActuelle.setLatLng(point);
+      } else {
+        marqueurPositionActuelle = L.marker(point, {
+          icon: L.divIcon({ className: "position-actuelle-pastille", iconSize: [14, 14] }),
+          interactive: false,
+          zIndexOffset: 1000,
+        }).addTo(carteMap);
+      }
+      carteMap.setView(point, Math.max(carteMap.getZoom(), 14));
+    },
+    () => afficherToast(t(currentLanguage, "gpsIndisponible")),
+    { timeout: 8000 }
+  );
 }
 
 function fermerApercuCarte() {
