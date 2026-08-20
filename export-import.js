@@ -25,7 +25,7 @@ function exporterSauvegarde() {
       JSON.stringify({ version: 1, exporteLe: new Date().toISOString(), entrees }, null, 2)
     );
 
-    const idsPhotos = [...new Set(entrees.map((e) => e.photoId).filter(Boolean))];
+    const idsPhotos = [...new Set(entrees.flatMap((e) => e.photoIds || []))];
     return Promise.all(
       idsPhotos.map((id) =>
         obtenirPhoto(id).then((blob) => {
@@ -79,12 +79,17 @@ function importerSauvegarde(fichier) {
         .reduce(
           (promesse, entree) =>
             promesse.then(() => {
-              const fichierPhoto = entree.photoId ? zip.file(`photos/${entree.photoId}.jpg`) : null;
-              const restaurationPhoto = fichierPhoto
-                ? fichierPhoto.async("blob").then((blob) => restaurerPhoto(entree.photoId, blob))
-                : Promise.resolve();
-              return restaurationPhoto
-                .then(() => restaurerEntree(entree))
+              // Repli sur l'ancien champ photoId : une sauvegarde
+              // exportée avant #12 n'a que ça.
+              const idsPhotos = entree.photoIds || (entree.photoId ? [entree.photoId] : []);
+              const restaurationsPhotos = idsPhotos.map((id) => {
+                const fichierPhoto = zip.file(`photos/${id}.jpg`);
+                return fichierPhoto ? fichierPhoto.async("blob").then((blob) => restaurerPhoto(id, blob)) : null;
+              });
+              const entreeRestauree = { ...entree, photoIds: idsPhotos };
+              delete entreeRestauree.photoId;
+              return Promise.all(restaurationsPhotos)
+                .then(() => restaurerEntree(entreeRestauree))
                 .then((ajoutee) => {
                   if (ajoutee) importees += 1;
                   else ignorees += 1;

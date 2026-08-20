@@ -35,9 +35,13 @@
  *                         pouvoir afficher une icône cohérente par
  *                         entrée (voir le mockup Look and Feel/#3)
  *   date        string   jour de la sortie, format AAAA-MM-JJ
- *   photoId     string | null   référence vers le store "photos"
- *                                (Blob), rempli par #4 -- absent tant
- *                                que la capture photo n'existe pas
+ *   photoIds    string[] références vers le store "photos" (Blob),
+ *                         jusqu'à 6 (voir MAX_PHOTOS dans app.js) --
+ *                         tableau vide tant qu'aucune photo. Anciennes
+ *                         entrées (avant #12) : champ `photoId` unique
+ *                         -- repli géré à la lecture par listerEntrees(),
+ *                         jamais migré/persisté (même principe que le
+ *                         titre manquant des entrées d'avant #11)
  *   creeLe      string   horodatage ISO de création, posé par
  *                         ajouterEntree -- jamais fourni par l'appelant
  *
@@ -96,7 +100,7 @@ function ajouterEntree(entree) {
     commentaire: (entree.commentaire ?? "").trim(),
     meteo: METEO_OPTIONS.includes(entree.meteo) ? entree.meteo : "aucune",
     date: entree.date ?? new Date().toISOString().slice(0, 10),
-    photoId: entree.photoId ?? null,
+    photoIds: Array.isArray(entree.photoIds) ? entree.photoIds.slice(0, 6) : [],
     creeLe: new Date().toISOString(),
   };
   return _ouvrirDB().then(
@@ -127,7 +131,9 @@ function modifierEntree(entree) {
     labels: _normaliserLabels(entree.labels),
     commentaire: (entree.commentaire ?? "").trim(),
     meteo: METEO_OPTIONS.includes(entree.meteo) ? entree.meteo : "aucune",
+    photoIds: Array.isArray(entree.photoIds) ? entree.photoIds.slice(0, 6) : [],
   };
+  delete complete.photoId; // ancien champ (avant #12) -- ne pas le laisser traîner une fois l'entrée réenregistrée
   return _ouvrirDB().then(
     (db) =>
       new Promise((resolve, reject) => {
@@ -146,12 +152,21 @@ function listerEntrees() {
         const transaction = db.transaction("entrees", "readonly");
         const requete = transaction.objectStore("entrees").getAll();
         requete.onsuccess = () => {
-          // Plus récent d'abord -- date de la sortie, puis date de
-          // création en départage (deux sorties le même jour).
-          const entrees = requete.result.sort((a, b) => {
-            if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-            return a.creeLe < b.creeLe ? 1 : -1;
-          });
+          // Repli sur l'ancien champ photoId (avant #12) pour les
+          // entrées jamais réenregistrées depuis -- jamais migré/
+          // persisté ici, juste normalisé à la lecture (voir le
+          // schéma en tête de fichier).
+          const entrees = requete.result
+            .map((e) => ({
+              ...e,
+              photoIds: e.photoIds || (e.photoId ? [e.photoId] : []),
+            }))
+            // Plus récent d'abord -- date de la sortie, puis date de
+            // création en départage (deux sorties le même jour).
+            .sort((a, b) => {
+              if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+              return a.creeLe < b.creeLe ? 1 : -1;
+            });
           resolve(entrees);
         };
         requete.onerror = () => reject(requete.error);

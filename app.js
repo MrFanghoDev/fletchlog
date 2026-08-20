@@ -7,8 +7,12 @@ let currentLanguage = localStorage.getItem("fletchlog_lang") || "fr";
 let entreesActuelles = [];
 let idEnEdition = null;
 let photosCache = {}; // photoId -> URL d'objet (voir précharcherPhotos)
-let photoSelectionnee = null; // File choisi dans le formulaire, pas encore compressé/stocké
-let photoRetiree = false; // true si l'utilisateur a retiré la photo existante en édition
+// Photos du formulaire en cours (issue #4, plusieurs depuis #12) --
+// chaque élément { photoId } (existante) ou { fichier, urlApercu } (tout
+// juste choisie, pas encore compressée/stockée). L'ordre du tableau =
+// ordre d'affichage/sauvegarde.
+let photosFormulaire = [];
+const MAX_PHOTOS = 6;
 let gpsLat = null; // coordonnées capturées pour la nouvelle entrée en cours (issue #6)
 let gpsLon = null;
 
@@ -142,6 +146,17 @@ function formaterDate(dateISO) {
   return d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
+// Vignette partagée entre la vue Liste (carteHTML) et l'aperçu de la
+// vue Carte (afficherApercuCarte) -- première photo + badge "+N" si
+// plusieurs (issue #12), même logique aux deux endroits.
+function vignettePhotoHTML(entree) {
+  const idsPhotos = entree.photoIds || [];
+  const urlPhoto = idsPhotos.length ? photosCache[idsPhotos[0]] : null;
+  const contenu = urlPhoto ? `<img src="${urlPhoto}" alt="">` : ICONE_PLACEHOLDER_PHOTO;
+  const badge = idsPhotos.length > 1 ? `<span class="vignette-badge">+${idsPhotos.length - 1}</span>` : "";
+  return `<div class="carte-vignette">${contenu}${badge}</div>`;
+}
+
 function carteHTML(entree) {
   const meteoIcone = ICONES_METEO[entree.meteo];
   const meteoLigne =
@@ -149,8 +164,6 @@ function carteHTML(entree) {
       ? `<div class="carte-meteo">${meteoIcone}<span>${_echapperTexte(t(currentLanguage, "meteo" + entree.meteo.charAt(0).toUpperCase() + entree.meteo.slice(1)))}</span></div>`
       : "";
   const sousLigne = [entree.distance, formaterDate(entree.date)].filter((v) => v && v.trim()).join(" · ");
-  const urlPhoto = entree.photoId ? photosCache[entree.photoId] : null;
-  const vignette = urlPhoto ? `<img src="${urlPhoto}" alt="">` : ICONE_PLACEHOLDER_PHOTO;
 
   // Entrées créées avant #11 : pas de titre -- repli sur le lieu comme
   // intitulé, sans doublonner la ligne lieu juste en dessous.
@@ -169,7 +182,7 @@ function carteHTML(entree) {
 
   return `
     <button type="button" class="carte-entree" data-id="${_echapperAttr(entree.id)}">
-      <div class="carte-vignette">${vignette}</div>
+      ${vignettePhotoHTML(entree)}
       <div class="carte-texte">
         <div class="carte-titre"><span>${_echapperTexte(titreAffiche)}</span></div>
         ${ligneLieu}
@@ -338,12 +351,10 @@ function afficherApercuCarte(entree, marker) {
 
   const titreAffiche = entree.titre && entree.titre.trim() ? entree.titre : entree.lieu;
   const sousLigne = [entree.distance, formaterDate(entree.date)].filter((v) => v && v.trim()).join(" · ");
-  const urlPhoto = entree.photoId ? photosCache[entree.photoId] : null;
-  const vignette = urlPhoto ? `<img src="${urlPhoto}" alt="">` : ICONE_PLACEHOLDER_PHOTO;
 
   const apercu = document.getElementById("carte-apercu");
   apercu.innerHTML = `
-    <div class="carte-vignette">${vignette}</div>
+    ${vignettePhotoHTML(entree)}
     <div class="carte-texte">
       <div class="carte-titre"><span>${_echapperTexte(titreAffiche)}</span></div>
       <span class="carte-sous">${_echapperTexte(sousLigne)}</span>
@@ -409,7 +420,7 @@ function revoquerPhotosCache() {
 
 function precharcherPhotos(entrees) {
   revoquerPhotosCache();
-  const idsPhotos = [...new Set(entrees.map((e) => e.photoId).filter(Boolean))];
+  const idsPhotos = [...new Set(entrees.flatMap((e) => e.photoIds || []))];
   return Promise.all(
     idsPhotos.map((id) =>
       obtenirPhoto(id).then((blob) => {
@@ -431,9 +442,7 @@ function chargerEntrees() {
     });
 }
 
-// ---- Photo (issue #4) ----------------------------------------------
-
-let urlApercuTemporaire = null; // object URL du fichier tout juste choisi, pas encore stocké
+// ---- Photo (issue #4, plusieurs photos depuis #12) ------------------
 
 function compresserPhoto(fichier) {
   const LONGUEUR_MAX = 1600;
@@ -471,32 +480,74 @@ function compresserPhoto(fichier) {
   });
 }
 
-function afficherApercuPlaceholder() {
-  document.getElementById("photo-preview").innerHTML = ICONE_PLACEHOLDER_PHOTO;
-  document.getElementById("photo-retirer").hidden = true;
+// Révoque les URL d'objet des photos "nouvelles" (pas encore
+// enregistrées) -- à appeler à la fermeture du formulaire, sauvegardé
+// ou non, pour ne jamais laisser fuiter un blob URL.
+function revoquerApercusFormulaire() {
+  photosFormulaire.forEach((p) => {
+    if (p.urlApercu) URL.revokeObjectURL(p.urlApercu);
+  });
 }
 
-function afficherApercuUrl(url) {
-  document.getElementById("photo-preview").innerHTML = `<img src="${url}" alt="">`;
-  document.getElementById("photo-retirer").hidden = false;
+function rendrePhotosGalerie() {
+  const galerie = document.getElementById("photo-galerie");
+  const vignettes = photosFormulaire
+    .map((p, index) => {
+      const url = p.urlApercu || photosCache[p.photoId];
+      const contenu = url ? `<img src="${url}" alt="">` : ICONE_PLACEHOLDER_PHOTO;
+      return `
+        <div class="photo-vignette-form">
+          ${contenu}
+          <button type="button" class="photo-vignette-retirer" data-index="${index}" data-i18n-aria-label="formPhotoRetirer" aria-label="${t(currentLanguage, "formPhotoRetirer")}">✕</button>
+        </div>
+      `;
+    })
+    .join("");
+  const boutonAjouter =
+    photosFormulaire.length < MAX_PHOTOS
+      ? `<button type="button" class="photo-ajouter" id="photo-ajouter" data-i18n-aria-label="formPhotoChoisir" aria-label="${t(currentLanguage, "formPhotoChoisir")}">+</button>`
+      : "";
+  galerie.innerHTML = vignettes + boutonAjouter;
 }
 
-function resoudrePhotoPourEnvoi(entreeExistante) {
-  const ancienPhotoId = entreeExistante ? entreeExistante.photoId : null;
+function ajouterPhotoFormulaire(fichier) {
+  if (photosFormulaire.length >= MAX_PHOTOS) {
+    afficherToast(tf(currentLanguage, "formPhotoMaxAtteint", { max: MAX_PHOTOS }));
+    return;
+  }
+  photosFormulaire.push({ fichier, urlApercu: URL.createObjectURL(fichier) });
+  rendrePhotosGalerie();
+}
 
-  if (photoSelectionnee) {
-    return compresserPhoto(photoSelectionnee)
-      .then((blob) => enregistrerPhoto(blob))
-      .then((nouvelId) => {
-        if (ancienPhotoId) supprimerPhoto(ancienPhotoId).catch(() => {});
-        return nouvelId;
-      });
-  }
-  if (photoRetiree) {
-    if (ancienPhotoId) supprimerPhoto(ancienPhotoId).catch(() => {});
-    return Promise.resolve(null);
-  }
-  return Promise.resolve(ancienPhotoId);
+function retirerPhotoFormulaire(index) {
+  const [retiree] = photosFormulaire.splice(index, 1);
+  if (retiree && retiree.urlApercu) URL.revokeObjectURL(retiree.urlApercu);
+  rendrePhotosGalerie();
+}
+
+// Compresse/enregistre les photos nouvellement ajoutées, supprime
+// celles retirées par l'utilisateur (présentes sur l'entrée existante
+// mais plus dans photosFormulaire), garde les autres telles quelles --
+// résout le tableau photoIds final, dans l'ordre d'affichage.
+function resoudrePhotosPourEnvoi(entreeExistante) {
+  const ancienIds = entreeExistante ? entreeExistante.photoIds || [] : [];
+  const idsConserves = photosFormulaire.filter((p) => p.photoId).map((p) => p.photoId);
+  const idsSupprimes = ancienIds.filter((id) => !idsConserves.includes(id));
+  const suppressions = Promise.all(idsSupprimes.map((id) => supprimerPhoto(id).catch(() => {})));
+
+  const resolutions = Promise.all(
+    photosFormulaire.map((p, index) =>
+      p.photoId
+        ? Promise.resolve({ index, photoId: p.photoId })
+        : compresserPhoto(p.fichier)
+            .then((blob) => enregistrerPhoto(blob))
+            .then((photoId) => ({ index, photoId }))
+    )
+  );
+
+  return Promise.all([suppressions, resolutions]).then(([, resultats]) =>
+    resultats.sort((a, b) => a.index - b.index).map((r) => r.photoId)
+  );
 }
 
 // ---- Géolocalisation (issue #6, éditable depuis #15) ----------------
@@ -613,18 +664,10 @@ function ouvrirFormulaire(id) {
   document.getElementById("form-erreur").hidden = true;
   document.getElementById("form-supprimer").hidden = !entree;
 
-  photoSelectionnee = null;
-  photoRetiree = false;
+  revoquerApercusFormulaire();
+  photosFormulaire = entree ? (entree.photoIds || []).map((photoId) => ({ photoId })) : [];
   document.getElementById("champ-photo").value = "";
-  if (urlApercuTemporaire) {
-    URL.revokeObjectURL(urlApercuTemporaire);
-    urlApercuTemporaire = null;
-  }
-  if (entree && entree.photoId && photosCache[entree.photoId]) {
-    afficherApercuUrl(photosCache[entree.photoId]);
-  } else {
-    afficherApercuPlaceholder();
-  }
+  rendrePhotosGalerie();
 
   if (entree) {
     gpsLat = entree.lat ?? null;
@@ -641,6 +684,8 @@ function ouvrirFormulaire(id) {
 function fermerFormulaire() {
   document.getElementById("form-overlay").hidden = true;
   idEnEdition = null;
+  revoquerApercusFormulaire();
+  photosFormulaire = [];
 }
 
 function afficherErreurFormulaire(cle) {
@@ -665,8 +710,8 @@ function soumettreFormulaire(evenement) {
 
   const entreeExistante = idEnEdition ? entreesActuelles.find((e) => e.id === idEnEdition) : null;
 
-  resoudrePhotoPourEnvoi(entreeExistante)
-    .then((photoId) => {
+  resoudrePhotosPourEnvoi(entreeExistante)
+    .then((photoIds) => {
       const donnees = {
         titre,
         lieu,
@@ -677,7 +722,7 @@ function soumettreFormulaire(evenement) {
         commentaire: document.getElementById("champ-commentaire").value.trim(),
         meteo: document.getElementById("champ-meteo").value,
         date: document.getElementById("champ-date").value,
-        photoId,
+        photoIds,
         // gpsLat/gpsLon reflètent toujours l'état courant (issue #15) :
         // capture auto à l'ajout, position déjà enregistrée par défaut
         // en édition (voir ouvrirFormulaire()), recapturée/choisie sur
@@ -729,7 +774,7 @@ function supprimerDepuisFormulaire() {
   demanderConfirmation(t(currentLanguage, "confirmSuppression")).then((confirme) => {
     if (!confirme) return;
     supprimerEntree(idEnEdition)
-      .then(() => (entree && entree.photoId ? supprimerPhoto(entree.photoId).catch(() => {}) : null))
+      .then(() => Promise.all((entree?.photoIds || []).map((id) => supprimerPhoto(id).catch(() => {}))))
       .then(() => {
         fermerFormulaire();
         afficherToast(t(currentLanguage, "toastSupprime"));
@@ -745,22 +790,20 @@ function initFormulaire() {
   document.getElementById("form-entree").addEventListener("submit", soumettreFormulaire);
   document.getElementById("champ-photo").addEventListener("change", (evenement) => {
     const fichier = evenement.target.files[0];
-    if (!fichier) return;
-    photoSelectionnee = fichier;
-    photoRetiree = false;
-    if (urlApercuTemporaire) URL.revokeObjectURL(urlApercuTemporaire);
-    urlApercuTemporaire = URL.createObjectURL(fichier);
-    afficherApercuUrl(urlApercuTemporaire);
+    evenement.target.value = ""; // permet de resélectionner le même fichier ensuite
+    if (fichier) ajouterPhotoFormulaire(fichier);
   });
-  document.getElementById("photo-retirer").addEventListener("click", () => {
-    photoSelectionnee = null;
-    photoRetiree = true;
-    document.getElementById("champ-photo").value = "";
-    if (urlApercuTemporaire) {
-      URL.revokeObjectURL(urlApercuTemporaire);
-      urlApercuTemporaire = null;
+  // Délégation -- les vignettes/le bouton "+" sont recréés à chaque
+  // rendrePhotosGalerie(), pas de listener à reposer individuellement.
+  document.getElementById("photo-galerie").addEventListener("click", (evenement) => {
+    const boutonRetirer = evenement.target.closest(".photo-vignette-retirer");
+    if (boutonRetirer) {
+      retirerPhotoFormulaire(Number(boutonRetirer.dataset.index));
+      return;
     }
-    afficherApercuPlaceholder();
+    if (evenement.target.closest("#photo-ajouter")) {
+      document.getElementById("champ-photo").click();
+    }
   });
   ["filtre-discipline", "filtre-distance", "filtre-lieu", "filtre-label"].forEach((id) => {
     document.getElementById(id).addEventListener("change", () => {

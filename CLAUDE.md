@@ -365,3 +365,32 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   bannière au premier chargement, bannière correcte après
   `registration.update()`, et le bouton "Recharger" fonctionne
   bien.
+- **Plusieurs photos par entrée (issue #12, 2026-08-20)** : `photoId`
+  (string|null) devient `photoIds` (string[], jusqu'à 6 -- `MAX_PHOTOS`
+  dans `app.js`). Le store `"photos"` (IndexedDB, clé=photoId,
+  valeur=Blob) est inchangé -- plusieurs photos par entrée, c'est juste
+  plusieurs clés référencées, pas un nouveau schéma de stockage.
+  **Décidé avec l'utilisateur** : limite à 6 (pas illimité, pour ne
+  pas laisser le stockage d'un vieux téléphone exploser) ; vignette de
+  liste = première photo + badge `+N` si plusieurs (pas de carrousel).
+  **Pas de migration persistée** des entrées créées avant #12 (qui ont
+  encore `photoId` singulier) -- repli à la lecture dans
+  `listerEntrees()` (`photoIds = e.photoIds || (e.photoId ? [e.photoId] : [])`),
+  même principe que le titre manquant des entrées d'avant #11.
+  `modifierEntree()` supprime l'ancien champ `photoId` dès qu'une
+  entrée est réenregistrée (`delete complete.photoId`), pour ne pas le
+  laisser traîner indéfiniment. `export-import.js` gère aussi ce repli
+  côté import (une sauvegarde exportée avant #12 n'a que `photoId`).
+  Formulaire : galerie de vignettes (`photosFormulaire`, chaque élément
+  `{photoId}` existant ou `{fichier, urlApercu}` nouveau, pas encore
+  compressé/stocké) plutôt qu'un unique aperçu -- `resoudrePhotosPourEnvoi()`
+  compresse/enregistre les nouvelles, supprime celles retirées par
+  l'utilisateur (comparaison ancien tableau vs `photosFormulaire`),
+  garde les autres, dans l'ordre d'affichage. Vérifié réellement :
+  ajout de 3 photos, retrait d'une avant sauvegarde, plafond à 6
+  respecté (toast si dépassement), suppression d'une photo déjà
+  stockée sur une entrée existante (confirmée réellement absente du
+  store `"photos"` après coup, pas juste déréférencée), export/import
+  d'une entrée multi-photos (idempotent au réimport), et affichage
+  correct d'une entrée à l'ancien format (`photoId` singulier, jamais
+  réenregistrée depuis).
