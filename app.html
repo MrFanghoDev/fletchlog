@@ -19,6 +19,7 @@
   })();
 </script>
 <link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="leaflet.css">
 <style>
   /* Ossature de l'appli (issue #1) -- header, bascule de vue, nav
      basse, FAB. Les deux vues restent des placeholders : leur contenu
@@ -37,15 +38,19 @@
   .view-placeholder { color: var(--text-muted); font-size: 14px; text-align: center; margin-top: 60px; }
   .view-empty { color: var(--text-muted); font-size: 14px; text-align: center; margin-top: 60px; padding: 0 20px; }
 
-  /* Vue Carte (issue #7) -- représentation stylisée, pas de vraies
-     tuiles géographiques (voir #13 si besoin un jour). Pins
-     positionnés en % (voir projeterCoordonnees() dans app.js), sur le
-     même repère 0-100 que le viewBox du fond SVG décoratif. */
+  /* Vue Carte (issue #13) -- vraie carte OpenStreetMap (Leaflet, voir
+     leaflet.js/leaflet.css vendorés), plus de fond décoratif ni de
+     projection en % (l'ancienne approche stylisée de #7). Carte
+     initialisée à la demande (voir initCarte()/actualiserPinsCarte()
+     dans app.js) seulement au premier passage sur cette vue -- un
+     conteneur caché (display:none tant que .view n'est pas .active) a
+     une taille nulle, ce qui casse Leaflet s'il est initialisé dessus. */
   .carte-conteneur { position: relative; height: 65vh; min-height: 320px; border-radius: 16px; overflow: hidden; background: var(--surface-2); }
-  .carte-fond { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  .pin-carte { position: absolute; transform: translate(-50%, -100%); background: none; border: none; padding: 0; cursor: pointer; line-height: 0; }
+  #carte-leaflet { position: absolute; inset: 0; width: 100%; height: 100%; background: var(--surface-2); }
+  .leaflet-div-icon { background: none; border: none; }
+  .pin-carte { display: flex; align-items: flex-end; justify-content: center; overflow: visible; cursor: pointer; }
   .pin-carte svg { width: 28px; height: 28px; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
-  .pin-carte.active svg { width: 38px; height: 38px; }
+  .pin-carte.pin-carte-actif svg { width: 38px; height: 38px; }
   /* position: fixed (pas absolute dans .carte-conteneur) -- même
      raisonnement que le FAB/toast/nav (voir le correctif de layout
      du #3) : indépendant de la hauteur calculée du conteneur carte,
@@ -203,13 +208,7 @@
     </section>
     <section id="view-carte" class="view">
       <div class="carte-conteneur" id="carte-conteneur">
-        <svg class="carte-fond" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <rect width="100" height="100" fill="var(--surface-2)"/>
-          <ellipse cx="25" cy="30" rx="30" ry="20" fill="var(--surface)" opacity="0.5"/>
-          <ellipse cx="75" cy="70" rx="32" ry="24" fill="var(--surface)" opacity="0.5"/>
-          <path d="M-5 55 C 25 45, 45 65, 70 55 S 95 45, 105 55" fill="none" stroke="var(--border)" stroke-width="0.6" stroke-dasharray="0.3 2.5"/>
-          <path d="M-5 78 C 30 72, 55 88, 80 78 S 100 80, 105 86" fill="none" stroke="var(--border)" stroke-width="0.6" stroke-dasharray="0.3 2.5"/>
-        </svg>
+        <div id="carte-leaflet"></div>
       </div>
       <p class="view-empty" id="carte-vide" data-i18n="carteEmpty" hidden>Aucune sortie géolocalisée pour l'instant -- les sorties sans position GPS n'apparaissent que dans la Liste.</p>
       <div class="carte-apercu" id="carte-apercu" hidden></div>
@@ -322,6 +321,7 @@
 <script src="theme.js"></script>
 <script src="sw-register.js"></script>
 <script src="storage.js"></script>
+<script src="leaflet.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

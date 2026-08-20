@@ -237,6 +237,81 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   téléphone", cohérent avec le contenu déjà là) -- pas dans `app.html`,
   qui n'a pas d'écran de réglages.
 
+## Vraie carte OSM (issue #13, décidé 2026-08-20)
+
+- **Leaflet 1.9.4 vendoré** (`leaflet.js`/`leaflet.css`, téléchargés
+  depuis unpkg et committés, même principe que JSZip). Seuls les deux
+  fichiers nécessaires sont vendorés -- les images du marker par
+  défaut (`images/marker-icon.png` etc.) et du contrôle de calques ne
+  le sont volontairement pas : tous nos marqueurs utilisent notre
+  propre icône (`ICONE_PIN_CARTE`, inchangée, voir plus bas) via
+  `L.divIcon`, jamais le marker par défaut de Leaflet, et on n'ajoute
+  pas de contrôle de calques. La seule référence `url()` orpheline
+  dans `leaflet.css` (`.leaflet-default-icon-path`, un heuristique de
+  détection de chemin jamais déclenché tant qu'on fournit toujours une
+  icône explicite) est donc sans conséquence.
+- **URL de tuiles exacte, vérifiée sur la politique d'usage officielle**
+  (`operations.osmfoundation.org/policies/tiles/`, vérifiée le
+  2026-08-20) : `https://tile.openstreetmap.org/{z}/{x}/{y}.png`,
+  **sans** sous-domaines `{s}.`/`a.`/`b.`/`c.` (dépréciés, la politique
+  demande explicitement d'utiliser cette URL telle quelle).
+  Attribution : "© OpenStreetMap contributors" + lien vers
+  `openstreetmap.org/copyright`, plus un lien "Signaler un problème"
+  vers `openstreetmap.org/fixthemap` (les deux ajoutés au contrôle
+  d'attribution Leaflet) -- les deux exigés par la politique.
+- **Tension avec le principe offline-first du projet** : la politique
+  OSM interdit explicitement tout "prefetch"/téléchargement de zone
+  pour un usage hors-ligne. Question posée explicitement à
+  l'utilisateur (deux options : carte strictement en ligne, ou cache
+  opportuniste malgré la zone grise) -- **réponse : cache opportuniste
+  quand même**. Implémenté dans `sw.js` (`gererTuileCarte()`,
+  cache dédié `fletchlog-tuiles-osm`, plafonné à 400 tuiles, éviction
+  FIFO) : une tuile n'y entre QUE si elle a réellement été affichée
+  pendant une navigation normale -- jamais de préchargement de zone ni
+  de fonctionnalité "télécharger pour hors-ligne" explicite. Ce cache
+  est volontairement exclu du nettoyage par `CACHE_NAME` (une tuile
+  déjà vue n'a pas de raison d'expirer à chaque mise à jour de
+  l'appli). Vérifié réellement hors-ligne (réseau coupé via Chrome
+  DevTools Protocol) : coquille + tuiles déjà vues fonctionnent, une
+  tuile jamais vue échoue proprement (pas de crash). **Zone grise
+  assumée, pas garantie à 100% conforme** -- à reconsidérer si OSM
+  bloque un jour l'accès (voir la politique : blocage possible sans
+  préavis en cas d'usage jugé abusif).
+- **`crossOrigin: true` sur la couche de tuiles** -- indispensable :
+  sans lui, les requêtes `<img>` de Leaflet sont "no-cors"/opaques,
+  et une réponse opaque a toujours `response.ok === false` côté
+  service worker (bug découvert en testant : le cache restait vide en
+  silence, `.ok` ne passait jamais). `tile.openstreetmap.org` envoie
+  `Access-Control-Allow-Origin: *` (vérifié), donc le mode CORS
+  fonctionne sans casser le chargement des tuiles.
+- **Pin de marqueur (`ICONE_PIN_CARTE` dans `app.js`) volontairement
+  inchangé**, réutilisé tel quel via `L.divIcon` -- pas de nouveau
+  tracé pour la carte réelle (voir aussi la décision équivalente pour
+  le logo, #19, qui a délibérément gardé ce pin séparé).
+- Carte initialisée à la demande (`initCarte()`/`actualiserPinsCarte()`
+  dans `app.js`) seulement au premier passage sur la vue Carte, jamais
+  au chargement de la page -- un conteneur cité alors qu'il est encore
+  `display:none` (vue non active) a une taille nulle pour Leaflet,
+  qui calcule alors mal ses tuiles/son cadrage.
+- **Vérification** : testée réellement (Selenium + Chromium headless,
+  le mode non-headless de cet environnement plantait/bloquait au
+  lancement de session -- limite d'environnement déjà rencontrée
+  ailleurs dans ce projet, pas un souci de code) via un vrai serveur
+  HTTP local (nécessaire pour le service worker, qui ne s'enregistre
+  pas sur `file://`) : rendu de tuiles réelles et reconnaissables,
+  marqueurs, filtres, réouverture de l'onglet Carte, cache de tuiles
+  qui se remplit puis sert bien depuis le cache, fonctionnement
+  hors-ligne réel (réseau coupé via CDP) -- tout confirmé. **Seule
+  réserve honnête** : l'aperçu de fiche (`#carte-apercu`, clic sur un
+  marqueur) est confirmé correct par les moyens indirects disponibles
+  (style calculé, `elementFromPoint` au pixel exact renvoyant bien son
+  contenu) mais ne s'affiche pas dans une capture d'écran Chromium
+  headless -- artefact de compositing propre à ce mode de test (pas
+  du code touché par #13, le mécanisme `position:fixed` de
+  `.carte-apercu` est inchangé et avait déjà été validé sur un vrai
+  appareil lors de #7) -- à reconfirmer visuellement sur un vrai
+  appareil à l'occasion.
+
 ## Pas encore tranché
 
 - Découpage exact des tickets au-delà du premier jalon.

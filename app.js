@@ -64,6 +64,7 @@ function initNavigation() {
       document.querySelectorAll(".view").forEach((section) => {
         section.classList.toggle("active", section.id === `view-${vue}`);
       });
+      if (vue === "carte" && carteAJourNecessaire) actualiserPinsCarte();
     });
   });
 }
@@ -227,32 +228,46 @@ function rafraichirListe() {
 const ICONE_PIN_CARTE =
   '<svg viewBox="0 0 24 24"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" fill="var(--gold)"/><circle cx="12" cy="10" r="3.1" fill="#1a1206"/></svg>';
 
-function projeterCoordonnees(entrees) {
-  const MARGE = 12; // % de marge de chaque côté, pins jamais collés au bord
-  const lats = entrees.map((e) => e.lat);
-  const lons = entrees.map((e) => e.lon);
-  const latMin = Math.min(...lats);
-  const latMax = Math.max(...lats);
-  const lonMin = Math.min(...lons);
-  const lonMax = Math.max(...lons);
-  return entrees.map((e) => ({
-    ...e,
-    xPct: lonMax === lonMin ? 50 : MARGE + ((e.lon - lonMin) / (lonMax - lonMin)) * (100 - 2 * MARGE),
-    // latitude inversée : plus au nord (lat plus grande) = plus haut à l'écran (y plus petit)
-    yPct: latMax === latMin ? 50 : MARGE + ((latMax - e.lat) / (latMax - latMin)) * (100 - 2 * MARGE),
-  }));
+let carteMap = null;
+let carteCouchePins = null;
+let carteAJourNecessaire = true; // pins à recalculer avant prochain affichage de la vue Carte
+let pinCarteActif = null;
+
+// Carte OSM (issue #13) -- URL/attribution exactes exigées par la
+// politique d'usage officielle (operations.osmfoundation.org/policies/tiles/,
+// vérifiée le 2026-08-19) : https://tile.openstreetmap.org/{z}/{x}/{y}.png
+// SANS sous-domaines a/b/c (dépréciés, l'ancienne convention {s}. ne
+// doit plus être utilisée). Voir CLAUDE.md pour la décision sur le
+// cache hors-ligne (opportuniste, plafonné -- géré côté sw.js).
+function initCarte() {
+  if (carteMap) return;
+  carteMap = L.map("carte-leaflet", { attributionControl: true }).setView([46.6, 2.4], 5);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    crossOrigin: true, // requêtes non "opaques" -- indispensable pour que sw.js puisse
+    // lire response.ok et mettre les tuiles en cache (voir gererTuileCarte() dans sw.js).
+    // tile.openstreetmap.org envoie Access-Control-Allow-Origin: * (vérifié le 2026-08-20).
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+  }).addTo(carteMap);
+  carteMap.attributionControl.addAttribution(
+    '<a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener">Signaler un problème</a>'
+  );
+  carteCouchePins = L.layerGroup().addTo(carteMap);
 }
 
 function fermerApercuCarte() {
   const apercu = document.getElementById("carte-apercu");
   apercu.hidden = true;
   apercu.onclick = null;
-  document.querySelectorAll(".pin-carte.active").forEach((p) => p.classList.remove("active"));
+  if (pinCarteActif) pinCarteActif.getElement()?.classList.remove("pin-carte-actif");
+  pinCarteActif = null;
 }
 
-function afficherApercuCarte(entree, pinElement) {
-  document.querySelectorAll(".pin-carte.active").forEach((p) => p.classList.remove("active"));
-  pinElement.classList.add("active");
+function afficherApercuCarte(entree, marker) {
+  if (pinCarteActif) pinCarteActif.getElement()?.classList.remove("pin-carte-actif");
+  pinCarteActif = marker;
+  marker.getElement()?.classList.add("pin-carte-actif");
 
   const titreAffiche = entree.titre && entree.titre.trim() ? entree.titre : entree.lieu;
   const sousLigne = [entree.distance, formaterDate(entree.date)].filter((v) => v && v.trim()).join(" · ");
@@ -272,28 +287,47 @@ function afficherApercuCarte(entree, pinElement) {
   apercu.onclick = () => ouvrirFormulaire(entree.id);
 }
 
-function rafraichirCarte() {
-  const conteneur = document.getElementById("carte-conteneur");
+// Rendu Leaflet effectif -- séparé de rafraichirCarte() pour ne
+// s'exécuter que lorsque la vue Carte est réellement affichée (voir
+// initNavigation()), jamais sur un conteneur caché de taille nulle.
+function actualiserPinsCarte() {
   const vide = document.getElementById("carte-vide");
-
-  conteneur.querySelectorAll(".pin-carte").forEach((p) => p.remove());
-  fermerApercuCarte();
-
   const entreesAvecGPS = entreesFiltrees().filter((e) => e.lat != null && e.lon != null);
   vide.hidden = entreesAvecGPS.length > 0;
+  fermerApercuCarte();
+  carteAJourNecessaire = false;
+
+  initCarte();
+  carteMap.invalidateSize();
+  carteCouchePins.clearLayers();
+
   if (!entreesAvecGPS.length) return;
 
-  projeterCoordonnees(entreesAvecGPS).forEach((entree) => {
-    const bouton = document.createElement("button");
-    bouton.type = "button";
-    bouton.className = "pin-carte";
-    bouton.style.left = `${entree.xPct}%`;
-    bouton.style.top = `${entree.yPct}%`;
-    bouton.dataset.id = entree.id;
-    bouton.innerHTML = ICONE_PIN_CARTE;
-    bouton.addEventListener("click", () => afficherApercuCarte(entree, bouton));
-    conteneur.appendChild(bouton);
+  const points = [];
+  entreesAvecGPS.forEach((entree) => {
+    const marker = L.marker([entree.lat, entree.lon], {
+      icon: L.divIcon({ className: "pin-carte", html: ICONE_PIN_CARTE, iconSize: [28, 28], iconAnchor: [14, 26] }),
+    });
+    marker.on("click", () => afficherApercuCarte(entree, marker));
+    marker.addTo(carteCouchePins);
+    points.push([entree.lat, entree.lon]);
   });
+
+  if (points.length === 1) {
+    carteMap.setView(points[0], 14);
+  } else {
+    carteMap.fitBounds(points, { padding: [30, 30], maxZoom: 15 });
+  }
+}
+
+function rafraichirCarte() {
+  carteAJourNecessaire = true;
+  if (document.getElementById("view-carte").classList.contains("active")) {
+    actualiserPinsCarte();
+  } else {
+    document.getElementById("carte-vide").hidden =
+      entreesFiltrees().filter((e) => e.lat != null && e.lon != null).length > 0;
+  }
 }
 
 function rafraichirAffichage() {
