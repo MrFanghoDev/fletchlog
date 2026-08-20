@@ -3,7 +3,7 @@
 // premier chargement. Rien d'autre pour l'instant : pas de données
 // dynamiques à mettre en cache (voir #2, IndexedDB gère ça séparément).
 
-const CACHE_NAME = "fletchlog-shell-v30";
+const CACHE_NAME = "fletchlog-shell-v32";
 const FICHIERS_A_METTRE_EN_CACHE = [
   "./",
   "./index.html",

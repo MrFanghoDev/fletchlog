@@ -328,3 +328,25 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   entièrement différent (XSS/échappement, import de `.zip` non fiable,
   fuite de la zone consultée vers `tile.openstreetmap.org`, pas de
   token/auth à contourner).
+- **Position éditable après coup (issue #15, 2026-08-20)** : `gpsLat`/
+  `gpsLon` sont désormais la source de vérité dans les deux modes du
+  formulaire (ajout ET édition), plus seulement à l'ajout --
+  initialisées depuis `entree.lat`/`entree.lon` en édition (voir
+  `ouvrirFormulaire()`), modifiables via trois actions : recapture
+  (réutilise `demarrerCaptureGPS()`), sélection sur une vraie carte
+  (nouveau picker, pin fixe au centre de l'écran, "Valider" lit
+  `carteMapPicker.getCenter()` -- le choix retenu parmi les deux
+  options ouvertes par le ticket, rendu possible par #13), ou retrait
+  complet (`lat`/`lon` remis à `null`). Le picker réutilise
+  `ajouterCoucheTuilesOSM()` (factorisé depuis `initCarte()`) sur une
+  instance Leaflet séparée de `carteMap`. **Piège rencontré et corrigé
+  en vérifiant réellement** : le pin central du picker était invisible
+  au premier essai -- même cause que le bug FAB/carte déjà corrigé
+  (contrôles Leaflet à z-index jusqu'à 1000 non contenus) mais sur un
+  nouveau conteneur (`.picker-carte-zone`) qui n'avait pas reçu
+  `isolation: isolate`. Diagnostic initial via `elementFromPoint`
+  faussé par `pointer-events: none` sur le pin (intentionnel, pour
+  laisser les clics/glissés atteindre la carte dessous) -- un élément
+  non interactif par design ne peut pas être vérifié par hit-testing,
+  seule une capture d'écran (ou une capture de l'élément seul) le
+  confirme.

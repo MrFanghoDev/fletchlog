@@ -140,9 +140,31 @@
   .modal-overlay[hidden] { display: none; }
   .modal { padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px calc(env(safe-area-inset-bottom, 0px) + 20px); display: flex; flex-direction: column; gap: 14px; max-width: 480px; margin: 0 auto; width: 100%; }
   .modal h2 { font-size: 1.15rem; margin: 0; }
-  .gps-statut { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); }
-  .gps-statut.ok { color: var(--green); }
-  .gps-statut.erreur { color: var(--text-faint); }
+  /* Position (issue #15) -- capture auto à l'ouverture pour une
+     nouvelle entrée (inchangé), mais éditable dans les deux cas
+     (ajout ET édition) : recapture, choix sur la carte, ou retrait.
+     Avant #15, une édition ne pouvait jamais changer lat/lon -- voir
+     CLAUDE.md pour le détail de la décision. */
+  .position-statut { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .position-statut.ok { color: var(--green); }
+  .position-statut.erreur { color: var(--text-faint); }
+  .position-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .bouton-mini { font-family: var(--font-ui); font-size: 0.8rem; font-weight: 600; padding: 0.4rem 0.7rem; border-radius: 8px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); cursor: pointer; }
+
+  /* Sélecteur de position sur la carte -- pin fixe au centre, c'est la
+     carte qui se déplace dessous (même convention que Google Maps/
+     Uber pour ce genre de sélecteur : évite d'avoir à gérer un
+     marqueur déplaçable au doigt, qui serait imprécis sur mobile). */
+  .picker-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 25; display: flex; flex-direction: column; }
+  .picker-overlay[hidden] { display: none; }
+  /* isolation: isolate -- même correctif que .carte-conteneur (voir
+     plus haut) : sans ça, le z-index des contrôles Leaflet (jusqu'à
+     1000) passe devant le pin central au lieu de rester sous lui. */
+  .picker-carte-zone { position: relative; isolation: isolate; flex: 1; }
+  #picker-carte { position: absolute; inset: 0; }
+  .picker-pin-centre { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); pointer-events: none; z-index: 15; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
+  .picker-actions { display: flex; gap: 10px; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--border); }
+  .picker-actions button { flex: 1; }
   input[type=date], textarea {
     font-family: var(--font-ui); font-size: 0.9rem; color: var(--text);
     background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
@@ -266,9 +288,17 @@
   <div class="modal-overlay" id="form-overlay" hidden>
     <div class="modal">
       <h2 id="form-titre" data-i18n="formTitreAjout">Nouvelle sortie</h2>
-      <div class="gps-statut" id="gps-statut" hidden>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>
-        <span id="gps-statut-texte"></span>
+      <div class="field">
+        <label data-i18n="positionLabel">Position</label>
+        <div class="position-statut" id="position-statut">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.2"/><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>
+          <span id="position-statut-texte"></span>
+        </div>
+        <div class="position-actions">
+          <button type="button" class="bouton-mini" id="position-recapturer" data-i18n="positionRecapturer">Recapturer</button>
+          <button type="button" class="bouton-mini" id="position-choisir-carte" data-i18n="positionChoisirCarte">Choisir sur la carte</button>
+          <button type="button" class="bouton-mini" id="position-retirer" data-i18n="positionRetirer" hidden>Retirer</button>
+        </div>
       </div>
       <form id="form-entree">
         <div class="field">
@@ -334,6 +364,19 @@
           <button type="submit" class="btn-primary" data-i18n="formSauvegarder">Enregistrer</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="picker-overlay" id="picker-overlay" hidden>
+    <div class="picker-carte-zone">
+      <div id="picker-carte"></div>
+      <div class="picker-pin-centre">
+        <svg width="32" height="32" viewBox="0 0 24 24"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" fill="var(--gold)"/><circle cx="12" cy="10" r="3.1" fill="#1a1206"/></svg>
+      </div>
+    </div>
+    <div class="picker-actions">
+      <button type="button" class="btn-annuler" id="picker-annuler" data-i18n="pickerAnnuler">Annuler</button>
+      <button type="button" class="btn-primary" id="picker-valider" data-i18n="pickerValider">Valider cette position</button>
     </div>
   </div>
 

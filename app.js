@@ -254,9 +254,9 @@ let pinCarteActif = null;
 // SANS sous-domaines a/b/c (dépréciés, l'ancienne convention {s}. ne
 // doit plus être utilisée). Voir CLAUDE.md pour la décision sur le
 // cache hors-ligne (opportuniste, plafonné -- géré côté sw.js).
-function initCarte() {
-  if (carteMap) return;
-  carteMap = L.map("carte-leaflet", { attributionControl: true }).setView([46.6, 2.4], 5);
+// Factorisé (issue #15) -- réutilisé par la carte principale et par le
+// sélecteur de position du formulaire (voir ouvrirPickerPosition()).
+function ajouterCoucheTuilesOSM(map) {
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     crossOrigin: true, // requêtes non "opaques" -- indispensable pour que sw.js puisse
@@ -264,10 +264,16 @@ function initCarte() {
     // tile.openstreetmap.org envoie Access-Control-Allow-Origin: * (vérifié le 2026-08-20).
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
-  }).addTo(carteMap);
-  carteMap.attributionControl.addAttribution(
+  }).addTo(map);
+  map.attributionControl.addAttribution(
     '<a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener">Signaler un problème</a>'
   );
+}
+
+function initCarte() {
+  if (carteMap) return;
+  carteMap = L.map("carte-leaflet", { attributionControl: true }).setView([46.6, 2.4], 5);
+  ajouterCoucheTuilesOSM(carteMap);
   carteCouchePins = L.layerGroup().addTo(carteMap);
   new ControleLocaliser().addTo(carteMap);
 }
@@ -493,53 +499,96 @@ function resoudrePhotoPourEnvoi(entreeExistante) {
   return Promise.resolve(ancienPhotoId);
 }
 
-// ---- Géolocalisation (issue #6) -------------------------------------
-// Capturée automatiquement à l'ouverture du formulaire d'AJOUT
-// seulement (pas en édition -- les coordonnées d'une entrée existante
-// ne sont jamais recapturées ni modifiables ici, voir #15). Coordonnées
-// brutes stockées telles quelles, aucun reverse-geocoding (voir
-// CLAUDE.md -- resterait offline-first).
+// ---- Géolocalisation (issue #6, éditable depuis #15) ----------------
+// Capturée automatiquement à l'ouverture du formulaire d'AJOUT ; en
+// édition, gpsLat/gpsLon partent de la position déjà enregistrée sur
+// l'entrée (voir ouvrirFormulaire()) -- dans les deux cas, l'utilisateur
+// peut ensuite recapturer, choisir sur la carte, ou retirer la
+// position (voir position-actions dans app.html). Coordonnées brutes
+// stockées telles quelles, aucun reverse-geocoding (voir CLAUDE.md --
+// resterait offline-first).
 
-function afficherStatutGPS(etat) {
-  const conteneur = document.getElementById("gps-statut");
-  const texte = document.getElementById("gps-statut-texte");
+function rafraichirStatutPosition(etat) {
+  const conteneur = document.getElementById("position-statut");
+  const texte = document.getElementById("position-statut-texte");
   conteneur.classList.remove("ok", "erreur");
-  if (etat === "inactif") {
-    conteneur.hidden = true;
-    return;
-  }
-  conteneur.hidden = false;
   if (etat === "loading") {
-    texte.setAttribute("data-i18n", "gpsEnCours");
     texte.textContent = t(currentLanguage, "gpsEnCours");
   } else if (etat === "ok") {
     conteneur.classList.add("ok");
-    texte.setAttribute("data-i18n", "gpsCapturee");
-    texte.textContent = t(currentLanguage, "gpsCapturee");
-  } else {
+    texte.textContent = tf(currentLanguage, "positionCoordonnees", {
+      lat: gpsLat.toFixed(5),
+      lon: gpsLon.toFixed(5),
+    });
+  } else if (etat === "erreur") {
     conteneur.classList.add("erreur");
-    texte.setAttribute("data-i18n", "gpsIndisponible");
     texte.textContent = t(currentLanguage, "gpsIndisponible");
+  } else {
+    texte.textContent = t(currentLanguage, "positionAbsente");
   }
+  document.getElementById("position-retirer").hidden = gpsLat == null || gpsLon == null;
 }
 
 function demarrerCaptureGPS() {
   gpsLat = null;
   gpsLon = null;
   if (!("geolocation" in navigator)) {
-    afficherStatutGPS("erreur");
+    rafraichirStatutPosition("erreur");
     return;
   }
-  afficherStatutGPS("loading");
+  rafraichirStatutPosition("loading");
   navigator.geolocation.getCurrentPosition(
     (position) => {
       gpsLat = position.coords.latitude;
       gpsLon = position.coords.longitude;
-      afficherStatutGPS("ok");
+      rafraichirStatutPosition("ok");
     },
-    () => afficherStatutGPS("erreur"),
+    () => rafraichirStatutPosition("erreur"),
     { timeout: 8000 }
   );
+}
+
+function retirerPosition() {
+  gpsLat = null;
+  gpsLon = null;
+  rafraichirStatutPosition("absente");
+}
+
+// Sélecteur de position sur la carte -- pin fixe au centre de l'écran,
+// "Valider" lit le centre courant de la carte (voir picker-pin-centre
+// dans app.html). Instance Leaflet séparée de carteMap : la carte
+// principale peut ne jamais avoir été affichée quand on ouvre le
+// formulaire, pas de raison de forcer son initialisation ici.
+let carteMapPicker = null;
+
+function ouvrirPickerPosition() {
+  document.getElementById("picker-overlay").hidden = false;
+  const centre =
+    gpsLat != null && gpsLon != null
+      ? [gpsLat, gpsLon]
+      : carteMap
+        ? carteMap.getCenter()
+        : [46.6, 2.4];
+  const zoom = gpsLat != null && gpsLon != null ? 15 : carteMap ? carteMap.getZoom() : 5;
+  if (!carteMapPicker) {
+    carteMapPicker = L.map("picker-carte", { attributionControl: true }).setView(centre, zoom);
+    ajouterCoucheTuilesOSM(carteMapPicker);
+  } else {
+    carteMapPicker.setView(centre, zoom);
+  }
+  requestAnimationFrame(() => carteMapPicker.invalidateSize());
+}
+
+function fermerPickerPosition() {
+  document.getElementById("picker-overlay").hidden = true;
+}
+
+function validerPickerPosition() {
+  const centre = carteMapPicker.getCenter();
+  gpsLat = centre.lat;
+  gpsLon = centre.lng;
+  rafraichirStatutPosition("ok");
+  fermerPickerPosition();
 }
 
 // ---- Formulaire d'ajout/édition ------------------------------------
@@ -578,7 +627,9 @@ function ouvrirFormulaire(id) {
   }
 
   if (entree) {
-    afficherStatutGPS("inactif");
+    gpsLat = entree.lat ?? null;
+    gpsLon = entree.lon ?? null;
+    rafraichirStatutPosition(gpsLat != null ? "ok" : "absente");
   } else {
     demarrerCaptureGPS();
   }
@@ -627,16 +678,13 @@ function soumettreFormulaire(evenement) {
         meteo: document.getElementById("champ-meteo").value,
         date: document.getElementById("champ-date").value,
         photoId,
+        // gpsLat/gpsLon reflètent toujours l'état courant (issue #15) :
+        // capture auto à l'ajout, position déjà enregistrée par défaut
+        // en édition (voir ouvrirFormulaire()), recapturée/choisie sur
+        // la carte/retirée entre-temps si l'utilisateur l'a fait.
+        lat: gpsLat,
+        lon: gpsLon,
       };
-      // Coordonnées GPS uniquement à l'ajout (capturées par
-      // demarrerCaptureGPS() à l'ouverture du formulaire) -- en
-      // édition, donnees n'a pas de lat/lon, le spread ci-dessous
-      // préserve donc celles déjà enregistrées sur l'entrée (#15 pour
-      // une édition manuelle, hors périmètre ici).
-      if (!idEnEdition) {
-        donnees.lat = gpsLat;
-        donnees.lon = gpsLon;
-      }
       return idEnEdition ? modifierEntree({ ...entreeExistante, ...donnees }) : ajouterEntree(donnees);
     })
     .then(() => {
@@ -723,6 +771,12 @@ function initFormulaire() {
   });
   document.getElementById("recherche-commentaire").addEventListener("input", () => rafraichirAffichage());
   document.getElementById("tri-liste").addEventListener("change", () => rafraichirListe());
+
+  document.getElementById("position-recapturer").addEventListener("click", demarrerCaptureGPS);
+  document.getElementById("position-retirer").addEventListener("click", retirerPosition);
+  document.getElementById("position-choisir-carte").addEventListener("click", ouvrirPickerPosition);
+  document.getElementById("picker-annuler").addEventListener("click", fermerPickerPosition);
+  document.getElementById("picker-valider").addEventListener("click", validerPickerPosition);
 }
 
 applyTranslations();
