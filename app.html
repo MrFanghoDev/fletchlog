@@ -107,6 +107,12 @@
   }
   select.chip-select.active { border-color: var(--gold); background-color: var(--gold-dim); color: var(--gold); font-weight: 600; }
 
+  /* Tri de la vue Liste (issue #17) -- propre à cette vue seule (le
+     tri n'a pas de sens sur la vue Carte), donc en dehors du chip-row
+     partagé entre les deux vues. */
+  .tri-liste-ligne { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin: 0 0 10px; }
+  .tri-liste-ligne label { font-size: 12.5px; color: var(--text-muted); }
+
   .card-list { display: flex; flex-direction: column; gap: 10px; }
   .carte-entree { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; text-align: left; width: 100%; font-family: inherit; }
   .carte-vignette { width: 58px; height: 58px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -229,6 +235,16 @@
     </div>
 
     <section id="view-liste" class="view active">
+      <div class="tri-liste-ligne">
+        <label for="tri-liste" data-i18n="triListeLabel">Trier :</label>
+        <select class="chip-select" id="tri-liste">
+          <option value="date-desc" data-i18n="triDateDesc">Plus récent</option>
+          <option value="date-asc" data-i18n="triDateAsc">Plus ancien</option>
+          <option value="titre-asc" data-i18n="triTitreAsc">Titre (A→Z)</option>
+          <option value="lieu-asc" data-i18n="triLieuAsc">Lieu (A→Z)</option>
+          <option value="discipline-asc" data-i18n="triDisciplineAsc">Discipline (A→Z)</option>
+        </select>
+      </div>
       <div class="card-list" id="liste-cartes"></div>
       <p class="view-empty" id="liste-vide" data-i18n="listeEmpty" hidden>Aucune sortie enregistrée -- ajoute la première avec le bouton +.</p>
     </section>

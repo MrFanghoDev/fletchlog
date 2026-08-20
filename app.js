@@ -202,10 +202,25 @@ function entreesFiltrees() {
   );
 }
 
+// Tri de la vue Liste (issue #17) -- copie triée, n'affecte jamais
+// entreesActuelles ni la vue Carte (l'ordre n'y a pas de sens).
+const COMPARATEURS_TRI = {
+  "date-desc": (a, b) => (a.date !== b.date ? (a.date < b.date ? 1 : -1) : a.creeLe < b.creeLe ? 1 : -1),
+  "date-asc": (a, b) => (a.date !== b.date ? (a.date > b.date ? 1 : -1) : a.creeLe > b.creeLe ? 1 : -1),
+  "titre-asc": (a, b) => (a.titre || a.lieu).localeCompare(b.titre || b.lieu),
+  "lieu-asc": (a, b) => a.lieu.localeCompare(b.lieu),
+  "discipline-asc": (a, b) => (a.discipline || "").localeCompare(b.discipline || ""),
+};
+
+function trierEntrees(entrees) {
+  const critere = document.getElementById("tri-liste").value;
+  return entrees.slice().sort(COMPARATEURS_TRI[critere] || COMPARATEURS_TRI["date-desc"]);
+}
+
 function rafraichirListe() {
   const conteneur = document.getElementById("liste-cartes");
   const vide = document.getElementById("liste-vide");
-  const filtrees = entreesFiltrees();
+  const filtrees = trierEntrees(entreesFiltrees());
 
   conteneur.innerHTML = filtrees.map(carteHTML).join("");
   vide.hidden = entreesActuelles.length > 0;
@@ -707,6 +722,7 @@ function initFormulaire() {
     });
   });
   document.getElementById("recherche-commentaire").addEventListener("input", () => rafraichirAffichage());
+  document.getElementById("tri-liste").addEventListener("change", () => rafraichirListe());
 }
 
 applyTranslations();
