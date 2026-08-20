@@ -8,6 +8,8 @@ const TRANSLATIONS = {
     siteFooterCredit: "Développé pour les Archers Libres de Fontaine-le-Port ·",
     siteFooterLicense: "Licence GPLv3",
     homeFooterDevLink: "Dépôt GitHub",
+    majDisponible: "Nouvelle version disponible",
+    majRecharger: "Recharger",
 
     homeTagline: "Carnet personnel pour archers FFTL/IFAA -- lieux, cibles, disciplines.",
     homeBlurb: "Mémorise où et sur quoi tu as tiré : lieu, cible, discipline, distance, météo, photo. Entraînement informel et tir nature compris, pas seulement les compétitions officielles. Installable sur ton téléphone, fonctionne hors connexion, aucune donnée envoyée sur un serveur.",
@@ -113,6 +115,8 @@ const TRANSLATIONS = {
     siteFooterCredit: "Built for the Archers Libres de Fontaine-le-Port ·",
     siteFooterLicense: "GPLv3 License",
     homeFooterDevLink: "GitHub repository",
+    majDisponible: "New version available",
+    majRecharger: "Reload",
 
     homeTagline: "Personal shooting log for FFTL/IFAA archers -- locations, targets, disciplines.",
     homeBlurb: "Remember where and on what you shot: location, target, discipline, distance, weather, photo. Casual practice and field shoots included, not just official competitions. Installable on your phone, works offline, no data sent to a server.",

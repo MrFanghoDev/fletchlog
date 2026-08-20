@@ -350,3 +350,18 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   non interactif par design ne peut pas être vérifié par hit-testing,
   seule une capture d'écran (ou une capture de l'élément seul) le
   confirme.
+- **Notification de mise à jour (issue #10, 2026-08-20)** : logique
+  entièrement dans `sw-register.js` (partagé par les 3 pages), pas dans
+  `app.js` -- une mise à jour peut être détectée alors que l'utilisateur
+  est sur Aide ou l'accueil, pas seulement dans l'appli. Bannière
+  autonome (CSS injecté par JS, pas de dépendance à `.toast` qui
+  n'existe que dans `app.html`) plutôt qu'un reload forcé (voir le
+  ticket : couperait une saisie en cours). `premiereInstallation`
+  capturé via `!navigator.serviceWorker.controller` juste après
+  l'enregistrement -- évite de notifier "nouvelle version" au tout
+  premier chargement. Vérifié réellement en deux temps (même profil
+  Chrome persistant via `--user-data-dir`, `sw.js` modifié entre les
+  deux pour simuler une vraie nouvelle version déployée) : aucune
+  bannière au premier chargement, bannière correcte après
+  `registration.update()`, et le bouton "Recharger" fonctionne
+  bien.
