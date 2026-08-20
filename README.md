@@ -17,9 +17,12 @@ Projet frère de [fletchapps](https://github.com/MrFanghoDev/fletchapps),
 
 ## Statut
 
-En tout début de conception -- pas encore de version utilisable. Voir
-les [Issues](https://github.com/MrFanghoDev/fletchlog/issues) pour le
-premier jalon en cours.
+Utilisable -- MVP complet (installation, journal avec géolocalisation,
+vraie carte OpenStreetMap, export/import). Voir les
+[Releases](https://github.com/MrFanghoDev/fletchlog/releases) pour
+l'historique des versions, et les
+[Issues](https://github.com/MrFanghoDev/fletchlog/issues) pour les
+idées post-MVP en cours.
 
 ## Ce que c'est
 

@@ -315,3 +315,16 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
 ## Pas encore tranché
 
 - Découpage exact des tickets au-delà du premier jalon.
+- `REMERCIEMENTS.md` (issue #9, 2026-08-20) reprend le gabarit
+  fletchscore/fletchtime, mais **sans le marqueur**
+  `<!-- sphinx-include-start -->` (pas de doc Sphinx prévue, pas de
+  backend Python, contrairement aux deux autres). `CONTRIBUTING.md`,
+  `CODE_OF_CONDUCT.md`, `SECURITY.md` et
+  `.github/PULL_REQUEST_TEMPLATE.md` ajoutés le même jour (demandé
+  juste après), adaptés à la vraie architecture de FletchLog (pas de
+  serveur, pas d'auth, pas de suite de tests automatisée, pas de
+  Black/Ruff) plutôt que copiés tels quels depuis FletchScore/
+  FletchTime -- notamment `SECURITY.md`, dont le périmètre est
+  entièrement différent (XSS/échappement, import de `.zip` non fiable,
+  fuite de la zone consultée vers `tile.openstreetmap.org`, pas de
+  token/auth à contourner).
