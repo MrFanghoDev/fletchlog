@@ -3,4 +3,4 @@
  * setuptools_scm côté FletchScore/FletchTime, voir CLAUDE.md section
  * "Versions") : maintenu à la main, à mettre à jour à chaque tag posé.
  */
-const FLETCHLOG_VERSION = "v0.2.0";
+const FLETCHLOG_VERSION = "v0.2.1";
