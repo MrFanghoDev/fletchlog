@@ -152,10 +152,13 @@
   .position-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .bouton-mini { font-family: var(--font-ui); font-size: 0.8rem; font-weight: 600; padding: 0.4rem 0.7rem; border-radius: 8px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); cursor: pointer; }
 
-  /* Sélecteur de position sur la carte -- pin fixe au centre, c'est la
-     carte qui se déplace dessous (même convention que Google Maps/
+  /* Sélecteur de position sur la carte -- mire fixe au centre, c'est
+     la carte qui se déplace dessous (même convention que Google Maps/
      Uber pour ce genre de sélecteur : évite d'avoir à gérer un
-     marqueur déplaçable au doigt, qui serait imprécis sur mobile). */
+     marqueur déplaçable au doigt, qui serait imprécis sur mobile).
+     Mire plutôt qu'un pin (retour utilisateur) -- plus précis
+     visuellement : son centre exact est le point retenu, pas besoin
+     d'ancrer une pointe. */
   .picker-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 25; display: flex; flex-direction: column; }
   .picker-overlay[hidden] { display: none; }
   /* isolation: isolate -- même correctif que .carte-conteneur (voir
@@ -163,7 +166,10 @@
      1000) passe devant le pin central au lieu de rester sous lui. */
   .picker-carte-zone { position: relative; isolation: isolate; flex: 1; }
   #picker-carte { position: absolute; inset: 0; }
-  .picker-pin-centre { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); pointer-events: none; z-index: 15; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
+  /* translate(-50%, -50%) -- mire symétrique (pas un pin avec une
+     pointe à ancrer), le centre exact du composant est le point
+     retenu par validerPickerPosition(). */
+  .picker-pin-centre { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 15; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
   .picker-actions { display: flex; gap: 10px; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--border); }
   .picker-actions button { flex: 1; }
   input[type=date], textarea {
@@ -372,7 +378,12 @@
     <div class="picker-carte-zone">
       <div id="picker-carte"></div>
       <div class="picker-pin-centre">
-        <svg width="32" height="32" viewBox="0 0 24 24"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" fill="var(--gold)"/><circle cx="12" cy="10" r="3.1" fill="#1a1206"/></svg>
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.6">
+          <circle cx="12" cy="12" r="8"/>
+          <circle cx="12" cy="12" r="3.5"/>
+          <path d="M12 1.5v2.5M12 20v2.5M1.5 12h2.5M20 12h2.5" stroke-linecap="round"/>
+          <circle cx="12" cy="12" r="0.9" fill="var(--gold)" stroke="none"/>
+        </svg>
       </div>
     </div>
     <div class="picker-actions">

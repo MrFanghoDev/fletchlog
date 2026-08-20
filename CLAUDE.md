@@ -394,3 +394,18 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   d'une entrée multi-photos (idempotent au réimport), et affichage
   correct d'une entrée à l'ancien format (`photoId` singulier, jamais
   réenregistrée depuis).
+- **Mire plutôt que pin sur le picker de position (2026-08-21, retour
+  utilisateur)** : `.picker-pin-centre` (issue #15) affichait un pin
+  map ; remplacé par une mire (deux cercles concentriques + croix +
+  point central, même palette `--gold`) -- plus précis visuellement
+  (son centre exact est le point retenu par `validerPickerPosition()`,
+  pas besoin d'ancrer la pointe d'un pin). Transform passé de
+  `translate(-50%, -100%)` à `translate(-50%, -50%)` en conséquence.
+  Vérifié réellement : la coordonnée validée après un déplacement de
+  la carte correspond bien au centre affiché. **Même limite déjà
+  rencontrée sur le pin qu'elle remplace** : l'élément (toujours
+  `position:absolute` + `pointer-events:none` dans
+  `.picker-carte-zone` isolée) ne s'affiche pas dans une capture
+  d'écran Chromium headless bien qu'il soit correctement positionné/
+  stylé (style calculé vérifié) -- artefact de ce mode de test, pas du
+  code.
