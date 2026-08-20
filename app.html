@@ -52,7 +52,13 @@
      faisait déborder sous la nav basse fixe sur un vrai appareil. dvh
      s'ajuste à l'espace effectivement visible ; vh reste en repli pour
      les navigateurs qui ne connaissent pas dvh. */
-  .carte-conteneur { position: relative; height: 65vh; height: 65dvh; min-height: 320px; border-radius: 16px; overflow: hidden; background: var(--surface-2); }
+  /* isolation: isolate -- Leaflet donne à ses propres contrôles
+     (attribution, zoom, notre bouton localiser) un z-index jusqu'à
+     1000. Sans isolation, ce z-index n'est pas contenu à la carte : il
+     rivalise directement avec le FAB/toast/nav (z-index 15 ou moins)
+     ailleurs sur la page, et peut passer devant selon la position à
+     l'écran -- constaté avec le FAB masqué par l'angle de la carte. */
+  .carte-conteneur { position: relative; isolation: isolate; height: 65vh; height: 65dvh; min-height: 320px; border-radius: 16px; overflow: hidden; background: var(--surface-2); }
   #carte-leaflet { position: absolute; inset: 0; width: 100%; height: 100%; background: var(--surface-2); }
   .leaflet-div-icon { background: none; border: none; }
   .pin-carte { display: flex; align-items: flex-end; justify-content: center; overflow: visible; cursor: pointer; }
