@@ -349,7 +349,13 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   laisser les clics/glissés atteindre la carte dessous) -- un élément
   non interactif par design ne peut pas être vérifié par hit-testing,
   seule une capture d'écran (ou une capture de l'élément seul) le
-  confirme.
+  confirme. **Correctif incomplet à l'époque** -- voir l'entrée du
+  2026-08-21 plus bas : `isolation: isolate` contient bien le z-index
+  de Leaflet à l'intérieur de `.picker-carte-zone`, mais n'empêche pas
+  ce même z-index (jusqu'à 1000) de battre un élément à nous placé
+  DANS cette même zone isolée -- la capture d'écran de vérification de
+  l'époque ne l'a pas révélé, un signalement utilisateur sur un vrai
+  appareil si.
 - **Notification de mise à jour (issue #10, 2026-08-20)** : logique
   entièrement dans `sw-register.js` (partagé par les 3 pages), pas dans
   `app.js` -- une mise à jour peut être détectée alors que l'utilisateur
@@ -402,10 +408,26 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   pas besoin d'ancrer la pointe d'un pin). Transform passé de
   `translate(-50%, -100%)` à `translate(-50%, -50%)` en conséquence.
   Vérifié réellement : la coordonnée validée après un déplacement de
-  la carte correspond bien au centre affiché. **Même limite déjà
-  rencontrée sur le pin qu'elle remplace** : l'élément (toujours
-  `position:absolute` + `pointer-events:none` dans
-  `.picker-carte-zone` isolée) ne s'affiche pas dans une capture
-  d'écran Chromium headless bien qu'il soit correctement positionné/
-  stylé (style calculé vérifié) -- artefact de ce mode de test, pas du
-  code.
+  la carte correspond bien au centre affiché.
+
+  **Vrai bug signalé par l'utilisateur sur un vrai appareil** ("la
+  mire est sous la carte") -- d'abord mis (à tort) sur le compte d'un
+  artefact de capture d'écran headless déjà rencontré sur le pin
+  précédent, avant d'être creusé pour de vrai et confirmé comme un
+  vrai bug de z-index, pas un artefact de test. Cause exacte :
+  `isolation: isolate` sur `.picker-carte-zone` contient bien le
+  z-index de Leaflet (jusqu'à 1000, voir `.leaflet-top`/
+  `.leaflet-bottom` dans `leaflet.css`) à l'intérieur de cette zone --
+  mais `#picker-carte` (le conteneur Leaflet) n'a lui-même pas de
+  z-index propre, donc les panneaux/contrôles internes de Leaflet ne
+  sont pas contenus DANS `#picker-carte` comme on pourrait le croire,
+  seulement empêchés d'en sortir. Ils rivalisent donc directement avec
+  `.picker-pin-centre` (z-index:15 à l'origine) dans la même pile que
+  `.picker-carte-zone` isole, et gagnent. Corrigé en passant
+  `.picker-pin-centre` à `z-index: 1001` (strictement supérieur au
+  maximum connu de Leaflet). Reconfirmé réellement après coup (capture
+  d'écran + capture de l'élément seul, mire bien visible par-dessus la
+  carte) -- **la même analyse s'applique probablement au pin d'origine
+  du picker (voir l'entrée #15 plus haut)**, dont le correctif
+  `isolation: isolate` seul était donc incomplet, juste passé inaperçu
+  à l'époque.

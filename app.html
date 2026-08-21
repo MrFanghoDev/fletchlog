@@ -168,8 +168,16 @@
   #picker-carte { position: absolute; inset: 0; }
   /* translate(-50%, -50%) -- mire symétrique (pas un pin avec une
      pointe à ancrer), le centre exact du composant est le point
-     retenu par validerPickerPosition(). */
-  .picker-pin-centre { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 15; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
+     retenu par validerPickerPosition(). z-index: 1001 -- #picker-carte
+     (le conteneur Leaflet) n'a pas son propre z-index, donc les
+     panneaux/contrôles internes de Leaflet (jusqu'à z-index:1000,
+     voir .leaflet-top/.leaflet-bottom dans leaflet.css) rivalisent
+     directement avec cet élément dans la même pile empilée que
+     .picker-carte-zone isole -- pas contenus À L'INTÉRIEUR de
+     #picker-carte comme on pourrait le croire, seulement empêchés
+     d'en sortir. Sans z-index supérieur à 1000 ici, la mire passe
+     sous les tuiles (constaté réellement, pas seulement en théorie). */
+  .picker-pin-centre { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; z-index: 1001; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
   .picker-actions { display: flex; gap: 10px; padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--border); }
   .picker-actions button { flex: 1; }
   input[type=date], textarea {
