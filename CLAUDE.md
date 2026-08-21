@@ -331,6 +331,31 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   emplacements habituels (`icon.svg`, les 5 petites icônes de marque,
   la carte fletchapps). Vérifié réellement à taille réelle (icône
   d'app 512px et petites marques 26px) avant application.
+- **Vue Carte plein cadre (2026-08-21, retour utilisateur)** : la
+  barre de filtres/recherche flotte désormais par-dessus la carte
+  (`#filtres-barre`, `position: fixed`, dégradé `color-mix(in srgb,
+  var(--bg) 75%, transparent)` pour rester lisible sur n'importe quelle
+  couleur de fond de carte), et `.carte-conteneur` occupe tout
+  l'espace entre l'en-tête et la nav basse, sans bordure ni coins
+  arrondis. Activé via `body.vue-carte-plein`, posé par
+  `initNavigation()` toujours en même temps que `.view.active` --
+  jamais l'un sans l'autre -- plutôt qu'un sélecteur CSS direct sur
+  `#view-carte.active`, pour ne pas dupliquer la logique d'affichage
+  déjà portée par `.view`/`.view.active`. `--barre-haut` (hauteur
+  réelle de l'en-tête, safe-area comprise) mesuré en JS
+  (`mesurerHauteurEntete()`, aussi sur `resize` pour une rotation
+  d'écran) plutôt que deviné en CSS -- même esprit que le correctif
+  `dvh` d'avant, mais ici la valeur elle-même n'est pas devinable
+  proprement en CSS pur (dépend du contenu réel de l'en-tête).
+  **Contrôles Leaflet déplacés en conséquence** : zoom et "me
+  localiser" passent de leurs positions par défaut (`topleft`/
+  `topright`) à `bottomleft` (groupés) -- `topright` se serait
+  retrouvé sous la barre de filtres flottante, et `bottomright`
+  serait entré en collision avec le FAB (même coin, même niveau
+  vertical, tous deux fixes). Vérifié réellement : pas de
+  chevauchement carte/en-tête ni carte/nav, filtres et marqueurs
+  fonctionnels dans la nouvelle mise en page, vue Liste inchangée au
+  retour, aperçu de fiche (clic sur un marqueur) toujours fonctionnel.
 
 ## Pas encore tranché
 

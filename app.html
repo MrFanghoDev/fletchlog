@@ -60,6 +60,32 @@
      l'écran -- constaté avec le FAB masqué par l'angle de la carte. */
   .carte-conteneur { position: relative; isolation: isolate; height: 65vh; height: 65dvh; min-height: 320px; border-radius: 16px; overflow: hidden; background: var(--surface-2); }
   #carte-leaflet { position: absolute; inset: 0; width: 100%; height: 100%; background: var(--surface-2); }
+
+  /* Vue Carte plein cadre (retour utilisateur, 2026-08-21) -- filtres
+     flottants par-dessus, carte sans bordure occupant tout l'espace
+     entre l'en-tête et la nav basse. Activé via body.vue-carte-plein
+     (posé par initNavigation() en même temps que .view.active, jamais
+     l'un sans l'autre) plutôt qu'un simple sélecteur CSS sur
+     #view-carte.active : évite de dupliquer la logique d'affichage
+     déjà portée par .view/.view.active. --barre-haut mesuré en JS
+     (hauteur réelle de l'en-tête, safe-area comprise) plutôt que
+     deviné en CSS -- voir initNavigation(). */
+  body.vue-carte-plein #filtres-barre {
+    position: fixed; left: 0; right: 0; top: var(--barre-haut, 0px);
+    z-index: 20; max-width: 480px; margin: 0 auto; padding: 10px 16px 4px;
+    background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 75%, transparent), transparent);
+  }
+  body.vue-carte-plein #view-carte {
+    position: fixed; left: 0; right: 0; top: var(--barre-haut, 0px);
+    bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+    max-width: 480px; margin: 0 auto; padding: 0;
+  }
+  body.vue-carte-plein .carte-conteneur { position: absolute; inset: 0; height: auto; border-radius: 0; }
+  body.vue-carte-plein #carte-vide {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 5;
+    margin: 0; max-width: 80%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+  }
   .leaflet-div-icon { background: none; border: none; }
   .pin-carte { display: flex; align-items: flex-end; justify-content: center; overflow: visible; cursor: pointer; }
   .pin-carte svg { width: 28px; height: 28px; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
@@ -270,15 +296,19 @@
   <main>
     <!-- Filtres/recherche partagés entre Liste et Carte (issue #7) --
          un seul jeu d'éléments, pas de doublon d'id par vue : les
-         deux vues appellent entreesFiltrees() sur le même état. -->
-    <div class="recherche-commentaire">
-      <input type="search" id="recherche-commentaire" data-i18n-placeholder="rechercheCommentairePlaceholder" placeholder="Rechercher dans les commentaires...">
-    </div>
-    <div class="chip-row">
-      <select class="chip-select" id="filtre-discipline"></select>
-      <select class="chip-select" id="filtre-distance"></select>
-      <select class="chip-select" id="filtre-lieu"></select>
-      <select class="chip-select" id="filtre-label"></select>
+         deux vues appellent entreesFiltrees() sur le même état.
+         Regroupés dans #filtres-barre pour pouvoir les faire flotter
+         par-dessus la carte en vue Carte (voir body.vue-carte-plein). -->
+    <div id="filtres-barre">
+      <div class="recherche-commentaire">
+        <input type="search" id="recherche-commentaire" data-i18n-placeholder="rechercheCommentairePlaceholder" placeholder="Rechercher dans les commentaires...">
+      </div>
+      <div class="chip-row">
+        <select class="chip-select" id="filtre-discipline"></select>
+        <select class="chip-select" id="filtre-distance"></select>
+        <select class="chip-select" id="filtre-lieu"></select>
+        <select class="chip-select" id="filtre-label"></select>
+      </div>
     </div>
 
     <section id="view-liste" class="view active">

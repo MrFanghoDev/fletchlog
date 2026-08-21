@@ -60,7 +60,19 @@ function setLanguage(lang) {
   rafraichirAffichage();
 }
 
+// Hauteur réelle de l'en-tête (safe-area comprise) -- mesurée plutôt
+// que devinée, pour positionner #filtres-barre/#view-carte en mode
+// plein cadre (voir body.vue-carte-plein dans app.html). Appelée une
+// fois au chargement et sur resize (rotation d'écran) : la hauteur de
+// l'en-tête ne bouge pas autrement.
+function mesurerHauteurEntete() {
+  const bas = document.querySelector(".top-bar").getBoundingClientRect().bottom;
+  document.documentElement.style.setProperty("--barre-haut", `${bas}px`);
+}
+
 function initNavigation() {
+  mesurerHauteurEntete();
+  window.addEventListener("resize", mesurerHauteurEntete);
   document.querySelectorAll(".nav-btn").forEach((bouton) => {
     bouton.addEventListener("click", () => {
       const vue = bouton.dataset.view;
@@ -68,6 +80,7 @@ function initNavigation() {
       document.querySelectorAll(".view").forEach((section) => {
         section.classList.toggle("active", section.id === `view-${vue}`);
       });
+      document.body.classList.toggle("vue-carte-plein", vue === "carte");
       if (vue === "carte" && carteAJourNecessaire) actualiserPinsCarte();
     });
   });
@@ -285,7 +298,13 @@ function ajouterCoucheTuilesOSM(map) {
 
 function initCarte() {
   if (carteMap) return;
-  carteMap = L.map("carte-leaflet", { attributionControl: true }).setView([46.6, 2.4], 5);
+  // zoomControl: false puis rajouté en bas à gauche -- la vue Carte
+  // plein cadre (2026-08-21) fait flotter la barre de filtres en haut,
+  // qui recouvrirait sinon les contrôles de zoom par défaut (en haut à
+  // gauche). Bas à gauche reste libre (FAB et "me localiser" sont à
+  // droite/en bas).
+  carteMap = L.map("carte-leaflet", { attributionControl: true, zoomControl: false }).setView([46.6, 2.4], 5);
+  L.control.zoom({ position: "bottomleft" }).addTo(carteMap);
   ajouterCoucheTuilesOSM(carteMap);
   carteCouchePins = L.layerGroup().addTo(carteMap);
   new ControleLocaliser().addTo(carteMap);
@@ -295,8 +314,12 @@ function initCarte() {
 // sur .leaflet-bar, voir app.html) plutôt qu'un bouton HTML flottant à
 // part, pour bénéficier gratuitement du positionnement/de l'anti-chevauchement
 // que Leaflet gère déjà pour ses propres contrôles (zoom, attribution).
+// bottomleft, groupé avec le zoom -- topright serait recouvert par la
+// barre de filtres flottante, et bottomright entre en collision avec
+// le FAB (même coin, même niveau vertical, tous deux fixes) en vue
+// Carte plein cadre.
 const ControleLocaliser = L.Control.extend({
-  options: { position: "topright" },
+  options: { position: "bottomleft" },
   onAdd: function () {
     const bouton = L.DomUtil.create("button", "carte-bouton-localiser");
     bouton.type = "button";
