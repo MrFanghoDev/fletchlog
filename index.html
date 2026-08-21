@@ -18,13 +18,6 @@
   .hero .tagline { color: var(--text-muted); font-size: 1.02rem; margin: 0 0 0.6rem; line-height: 1.5; }
   .hero .blurb { color: var(--text-faint); font-size: 0.9rem; line-height: 1.6; max-width: 480px; }
 
-  .status-note {
-    margin-top: 1.5rem; display: flex; align-items: center; gap: 0.5rem;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
-    padding: 0.5rem 1rem; font-size: 0.82rem; color: var(--text-muted);
-  }
-  .status-note .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); flex-shrink: 0; }
-
   .cards { display: grid; gap: 1rem; width: 100%; max-width: 640px; margin-top: 2.25rem; grid-template-columns: 1fr; }
   @media (min-width: 560px) { .cards { grid-template-columns: repeat(2, 1fr); } }
   .card {
@@ -70,11 +63,6 @@
     <h1>FletchLog</h1>
     <p class="tagline" data-i18n="homeTagline">Carnet personnel pour archers FFTL/IFAA -- lieux, cibles, disciplines.</p>
     <p class="blurb" data-i18n="homeBlurb">Mémorise où et sur quoi tu as tiré : lieu, cible, discipline, distance, météo, photo. Entraînement informel et tir nature compris, pas seulement les compétitions officielles. Installable sur ton téléphone, fonctionne hors connexion, aucune donnée envoyée sur un serveur.</p>
-
-    <div class="status-note">
-      <span class="dot"></span>
-      <span data-i18n="homeStatusText">En cours de construction -- les fonctionnalités arrivent progressivement, suivies sur GitHub.</span>
-    </div>
   </div>
 
   <div class="cards">

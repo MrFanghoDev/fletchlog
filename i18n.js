@@ -13,8 +13,6 @@ const TRANSLATIONS = {
 
     homeTagline: "Carnet personnel pour archers FFTL/IFAA -- lieux, cibles, disciplines.",
     homeBlurb: "Mémorise où et sur quoi tu as tiré : lieu, cible, discipline, distance, météo, photo. Entraînement informel et tir nature compris, pas seulement les compétitions officielles. Installable sur ton téléphone, fonctionne hors connexion, aucune donnée envoyée sur un serveur.",
-    homeStatusTitle: "État du projet",
-    homeStatusText: "En cours de construction -- les fonctionnalités arrivent progressivement, suivies sur GitHub.",
     homeAppTitle: "Mon carnet",
     homeAppDesc: "Ajoute et consulte tes sorties de tir.",
     homeAppButton: "Ouvrir mon carnet",
@@ -127,8 +125,6 @@ const TRANSLATIONS = {
 
     homeTagline: "Personal shooting log for FFTL/IFAA archers -- locations, targets, disciplines.",
     homeBlurb: "Remember where and on what you shot: location, target, discipline, distance, weather, photo. Casual practice and field shoots included, not just official competitions. Installable on your phone, works offline, no data sent to a server.",
-    homeStatusTitle: "Project status",
-    homeStatusText: "Under active construction -- features are landing progressively, tracked on GitHub.",
     homeAppTitle: "My log",
     homeAppDesc: "Add and view your shooting sessions.",
     homeAppButton: "Open my log",
