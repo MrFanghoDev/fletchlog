@@ -1,7 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="112" fill="#0f1216"/>
-  <!-- Cible : cercles concentriques aplatis (vus de côté) -->
+  <!-- Cible : cercles concentriques aplatis (vus de côté), avec un
+       liseré sombre comme le pin (retour utilisateur), même anneau
+       dessiné deux fois, une fois plus large en fond sombre. -->
+  <ellipse cx="256" cy="340" rx="150" ry="62" fill="none" stroke="#0f1216" stroke-width="30"/>
   <ellipse cx="256" cy="340" rx="150" ry="62" fill="none" stroke="#d1a13d" stroke-width="24"/>
+  <ellipse cx="256" cy="340" rx="88" ry="36" fill="none" stroke="#0f1216" stroke-width="30"/>
   <ellipse cx="256" cy="340" rx="88" ry="36" fill="none" stroke="#d1a13d" stroke-width="24"/>
   <!-- Map pin affiné, par-dessus, pointe juste au-dessus du centre -->
   <g transform="translate(124, 98) scale(11)">

@@ -87,6 +87,17 @@ pas la reperdre :
   favicon (`<link rel="icon">`), juste retiré des icônes du manifest.
   **Non encore reconfirmé sur un vrai appareil après ce correctif** --
   à vérifier à la prochaine réinstallation.
+  **Précision du 2026-08-21** : `librsvg` seul n'a pas suffi une fois
+  (délégué SVG d'ImageMagick en échec silencieux, "unable to read
+  image data") -- le paquet qui fournit vraiment l'exécutable est
+  `rsvg-convert` (paquet distinct de `librsvg`, qui n'installe que la
+  bibliothèque). `apk add rsvg-convert` corrige, et `rsvg-convert -w
+  N -h N -o sortie.png icon.svg` fonctionne aussi directement, sans
+  passer par `magick`, avec des messages d'erreur bien plus clairs en
+  cas de souci (a révélé une vraie erreur XML dans `icon.svg` --
+  double tiret `--` dans un commentaire, invalide en XML contrairement
+  au JS -- que le message d'erreur de `magick` ne laissait pas du tout
+  deviner).
 - **Palette/identité visuelle** : reprise telle quelle de
   `fletchapps/theme.css` (canonique, voir la section "Design partagé"
   du CLAUDE.md global) -- copié dans ce dépôt (`theme.css`), pas de lien
@@ -311,6 +322,15 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   `.carte-apercu` est inchangé et avait déjà été validé sur un vrai
   appareil lors de #7) -- à reconfirmer visuellement sur un vrai
   appareil à l'occasion.
+- **Liseré sombre sur les anneaux du logo (2026-08-21, retour
+  utilisateur)** : les cercles aplatis n'avaient qu'un liseré sombre
+  sur le pin (voir plus haut), pas sur les anneaux eux-mêmes --
+  ajouté par cohérence, même technique (chaque ellipse dessinée deux
+  fois : une fois plus large en `#0f1216`/`#141414` selon le fond,
+  une fois à sa largeur d'origine en or par-dessus). Appliqué aux 7
+  emplacements habituels (`icon.svg`, les 5 petites icônes de marque,
+  la carte fletchapps). Vérifié réellement à taille réelle (icône
+  d'app 512px et petites marques 26px) avant application.
 
 ## Pas encore tranché
 
