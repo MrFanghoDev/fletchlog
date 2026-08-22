@@ -21,7 +21,7 @@ const ICONE_PIN =
 const ICONE_CHEVRON =
   '<svg class="carte-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>';
 const ICONE_PLACEHOLDER_PHOTO =
-  '<svg width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="#0f1216" stroke-width="1.7"/><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="#0f1216" stroke-width="1.7"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><g transform="translate(5.8125,4.59375) scale(0.515625)"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" fill="var(--text-faint)" stroke="#0f1216" stroke-width="1"/></g><circle cx="12" cy="15.94" r="0.5625" fill="var(--text-faint)"/></svg>';
+  '<svg width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="#0f1216" stroke-width="1.7"/><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="#0f1216" stroke-width="1.7"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><g transform="translate(12,10.94) scale(0.268) translate(-44.843,-39.079)"><path stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#0f1216" d="M 62.853 39.187 L 34.723 39.187 L 25.508 29.226 L 51.190 29.365 L 56.032 39.187 L 51.190 49.009 L 25.508 49.148 L 34.723 39.187 M 39.680 29.831 L 46.066 39.187 L 39.680 48.543" style="transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0, 1, -1, 0, 0.662491, -0.108498)"/><path stroke-width="1.05" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="var(--text-faint)" d="M 62.853 39.187 L 34.723 39.187 L 25.508 29.226 L 51.190 29.365 L 56.032 39.187 L 51.190 49.009 L 25.508 49.148 L 34.723 39.187 M 39.680 29.831 L 46.066 39.187 L 39.680 48.543" style="transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0, 1, -1, 0, 0.662491, -0.108498)"/></g><circle cx="12" cy="15.94" r="0.5625" fill="var(--text-faint)"/></svg>';
 
 const ICONES_METEO = {
   ensoleille:
@@ -264,10 +264,10 @@ function rafraichirListe() {
 // suffisante pour un carnet perso couvrant une zone restreinte -- pas
 // une vraie projection cartographique.
 
-// #1a1206 en dur, pas var(--goldText) -- pas de token dédié dans
-// theme.css, même choix que le FAB (voir .fab svg) qui fait pareil.
+// Plume (issue #22 -- remplace le pin, même tracé que fletchapps/icon.svg),
+// fût jusqu'à l'ancre [14,28] (voir iconAnchor de L.divIcon plus bas).
 const ICONE_PIN_CARTE =
-  '<svg viewBox="0 0 24 24"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z" fill="var(--gold)"/><circle cx="12" cy="10" r="3.1" fill="#1a1206"/></svg>';
+  '<svg viewBox="0 0 100 100"><g transform="translate(50,51.45) scale(2.6) translate(-44.843,-39.079)"><path stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#0f1216" d="M 62.853 39.187 L 34.723 39.187 L 25.508 29.226 L 51.190 29.365 L 56.032 39.187 L 51.190 49.009 L 25.508 49.148 L 34.723 39.187 M 39.680 29.831 L 46.066 39.187 L 39.680 48.543" style="transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0, 1, -1, 0, 0.662491, -0.108498)"/><path stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="var(--gold)" d="M 62.853 39.187 L 34.723 39.187 L 25.508 29.226 L 51.190 29.365 L 56.032 39.187 L 51.190 49.009 L 25.508 49.148 L 34.723 39.187 M 39.680 29.831 L 46.066 39.187 L 39.680 48.543" style="transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0, 1, -1, 0, 0.662491, -0.108498)"/></g></svg>';
 
 let carteMap = null;
 let carteCouchePins = null;
@@ -407,7 +407,7 @@ function actualiserPinsCarte() {
   const points = [];
   entreesAvecGPS.forEach((entree) => {
     const marker = L.marker([entree.lat, entree.lon], {
-      icon: L.divIcon({ className: "pin-carte", html: ICONE_PIN_CARTE, iconSize: [28, 28], iconAnchor: [14, 26] }),
+      icon: L.divIcon({ className: "pin-carte", html: ICONE_PIN_CARTE, iconSize: [28, 28], iconAnchor: [14, 28] }),
     });
     marker.on("click", () => afficherApercuCarte(entree, marker));
     marker.addTo(carteCouchePins);

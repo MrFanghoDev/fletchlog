@@ -476,3 +476,27 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   du picker (voir l'entrée #15 plus haut)**, dont le correctif
   `isolation: isolate` seul était donc incomplet, juste passé inaperçu
   à l'époque.
+- **Logo : pin remplacé par la plume FletchApps (2026-08-22, issue
+  #22)** : même tracé de plume que `fletchapps/icon.svg` (double
+  liseré noir/or, `transform-box: fill-box` + `matrix(0,1,-1,0,...)`),
+  réutilisé partout où le pin apparaissait -- `icon.svg` (fût jusqu'au
+  centre de la cible), les trois marques d'en-tête (`app.html`,
+  `aide.html`, `index.html`, mêmes coordonnées `translate(12,10.94)
+  scale(0.268)`), `ICONE_PLACEHOLDER_PHOTO` (variante grise
+  `--text-faint`) et `ICONE_PIN_CARTE` (marqueur Leaflet, fût = point
+  d'ancrage, `iconAnchor` passé de `[14,26]` à `[14,28]`). Laissé
+  inchangé : `ICONE_PIN` (petit repère générique à côté du champ
+  `lieu` dans la liste) -- usage fonctionnel "ceci est un lieu", pas
+  un élément de marque, un pin classique y reste plus lisible qu'une
+  plume à ce rôle.
+
+  **Piège rsvg-convert découvert en vérifiant le rendu** : `rsvg-convert`
+  (librsvg) ne supporte pas correctement `transform-box: fill-box` sur
+  un `<path>` -- rend les plumes hors-cadre ou invisibles selon le
+  groupe, alors qu'un vrai navigateur (vérifié via Chromium headless +
+  Selenium) les affiche correctement. Un rendu `rsvg-convert` qui a
+  l'air cassé sur ce genre de transform CSS n'est donc pas forcément
+  un bug du SVG -- toujours revérifier avec un vrai moteur de rendu
+  (Chromium) avant de conclure. `icon-192.png`/`icon-512.png`
+  régénérés via une capture Selenium de l'élément `<svg>` (élément
+  screenshot, pas `rsvg-convert`) pour cette raison.
