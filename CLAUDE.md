@@ -611,3 +611,30 @@ couleur alpha 0 avant la capture -- PNG résultant bien en RGBA
 capture de page (`identify -verbose`), pas seulement ses dimensions --
 une capture peut très bien avoir les bonnes dimensions et un fond
 opaque là où il devrait être transparent.
+
+## Lightbox : fondu entre photos (2026-08-22/23, retour utilisateur)
+
+`transition: opacity 0.15s ease` sur `.lightbox-img` (pas `transform`,
+qui doit rester instantané pour le pinch-zoom/pan en direct -- voir
+plus haut). `afficherPhotoLightbox(animer)` : pas de fondu à
+l'ouverture initiale (`animer=false`, rien à faire fondre depuis),
+fondu à la navigation prev/next/swipe (`animer=true`).
+
+Piège : les photos sont déjà en mémoire (blob URL/data URI, jamais de
+réseau), donc `img.onload` peut se déclencher sur le même tick que le
+changement de `src`, avant toute peinture -- `opacity` passerait alors
+de 0 à 1 sans qu'un seul frame ne soit jamais affiché à 0, donc sans
+fondu visible (juste un flash). Corrigé avec un double
+`requestAnimationFrame` (change `src` au premier frame peint, remonte
+l'opacité au frame suivant) -- technique standard pour ce genre de
+crossfade, garantit qu'un frame à opacity:0 est réellement peint entre
+les deux.
+
+**Non vérifié réellement** : Selenium/Chromium headless dans cet
+environnement (`--disable-gpu`, pas de vrai compositeur d'affichage)
+ne déclenche jamais l'événement `transitionrun` sur `opacity` ici, y
+compris sur un double rAF minimal isolé du reste du code -- semble
+être une limite de rendu headless plutôt qu'un bug réel (le motif est
+un pattern web standard et documenté). Je n'ai pas pu confirmer
+visuellement le fondu depuis cet environnement -- à vérifier sur un
+vrai appareil.

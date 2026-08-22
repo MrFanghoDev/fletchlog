@@ -557,30 +557,53 @@ function ouvrirLightbox(urls, indexDepart) {
   lightboxUrls = urls;
   lightboxIndex = indexDepart;
   document.getElementById("lightbox-overlay").hidden = false;
-  afficherPhotoLightbox();
+  afficherPhotoLightbox(false);
 }
 
 function fermerLightbox() {
   document.getElementById("lightbox-overlay").hidden = true;
 }
 
-function afficherPhotoLightbox() {
+// animer: fondu enchaîné entre deux photos (navigation prev/next) --
+// pas à l'ouverture initiale, où il n'y a rien à faire fondre depuis.
+// Les photos sont déjà en mémoire (blob URL/data URI, pas de réseau) :
+// le chargement peut se terminer sur le même tick que le changement de
+// src, avant toute peinture -- opacity passerait de 0 à 1 sans qu'un
+// seul frame ne soit jamais affiché à 0, donc sans fondu visible. Le
+// double requestAnimationFrame force un frame peint entre les deux.
+function afficherPhotoLightbox(animer) {
   reinitialiserZoomLightbox();
-  document.getElementById("lightbox-img").src = lightboxUrls[lightboxIndex];
-  const plusieurs = lightboxUrls.length > 1;
-  document.getElementById("lightbox-compteur").textContent = plusieurs ? `${lightboxIndex + 1} / ${lightboxUrls.length}` : "";
-  document.getElementById("lightbox-prev").hidden = !plusieurs;
-  document.getElementById("lightbox-next").hidden = !plusieurs;
+  const img = document.getElementById("lightbox-img");
+  const majCompteurEtNav = () => {
+    const plusieurs = lightboxUrls.length > 1;
+    document.getElementById("lightbox-compteur").textContent = plusieurs ? `${lightboxIndex + 1} / ${lightboxUrls.length}` : "";
+    document.getElementById("lightbox-prev").hidden = !plusieurs;
+    document.getElementById("lightbox-next").hidden = !plusieurs;
+  };
+  if (!animer) {
+    img.style.opacity = "1";
+    img.src = lightboxUrls[lightboxIndex];
+    majCompteurEtNav();
+    return;
+  }
+  img.style.opacity = "0";
+  requestAnimationFrame(() => {
+    img.src = lightboxUrls[lightboxIndex];
+    requestAnimationFrame(() => {
+      img.style.opacity = "1";
+    });
+  });
+  majCompteurEtNav();
 }
 
 function lightboxPrecedente() {
   lightboxIndex = (lightboxIndex - 1 + lightboxUrls.length) % lightboxUrls.length;
-  afficherPhotoLightbox();
+  afficherPhotoLightbox(true);
 }
 
 function lightboxSuivante() {
   lightboxIndex = (lightboxIndex + 1) % lightboxUrls.length;
-  afficherPhotoLightbox();
+  afficherPhotoLightbox(true);
 }
 
 // Pinch-to-zoom + pan (issue #24, retour utilisateur) -- un doigt

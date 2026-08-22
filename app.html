@@ -264,7 +264,11 @@
   /* touch-action: none -- pinch-zoom/pan gérés à la main en JS (voir
      initFormulaire()), le navigateur ne doit intercepter aucun geste
      tactile ici (ni scroll, ni son propre pinch natif). */
-  .lightbox-img { max-width: 100%; max-height: 100%; object-fit: contain; touch-action: none; }
+  /* transition sur opacity seulement (pas transform) -- le pinch-zoom/
+     pan (voir initFormulaire()) écrit transform en direct à chaque
+     touchmove, une transition dessus le ferait traîner derrière le
+     doigt au lieu de suivre en temps réel. */
+  .lightbox-img { max-width: 100%; max-height: 100%; object-fit: contain; touch-action: none; transition: opacity 0.15s ease; }
   .lightbox-fermer {
     position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 16px;
     width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.12); color: #fff;
