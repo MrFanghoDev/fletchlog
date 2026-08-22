@@ -237,7 +237,7 @@
      la limite n'est pas atteinte, qui déclenche l'input file caché. */
   .photo-galerie { display: flex; gap: 8px; overflow-x: auto; padding: 2px 0; }
   .photo-vignette-form { position: relative; width: 64px; height: 64px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); flex-shrink: 0; overflow: hidden; }
-  .photo-vignette-form img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-vignette-form img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; }
   .photo-vignette-retirer {
     position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%;
     background: rgba(0,0,0,0.6); color: #fff; border: none; display: flex; align-items: center;
@@ -250,6 +250,35 @@
   }
 
   .carte-vignette img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block; }
+
+  /* Lightbox photo (issue #24) -- vue plein écran depuis la galerie du
+     formulaire (seul endroit où taper une vignette ne faisait rien).
+     z-index: 26, au-dessus du formulaire (20) et du picker (25), sous
+     la confirmation (30) -- ne cohabite avec aucun des deux en usage
+     normal, mais garde l'ordre cohérent si jamais. Contrairement au
+     formulaire (fermeture via "Annuler" seulement, pour ne pas perdre
+     une saisie), un tap sur le fond ferme la lightbox : consultation
+     seule, rien à perdre. */
+  .lightbox-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.92); z-index: 26; display: flex; align-items: center; justify-content: center; }
+  .lightbox-overlay[hidden] { display: none; }
+  .lightbox-img { max-width: 100%; max-height: 100%; object-fit: contain; touch-action: pan-y; }
+  .lightbox-fermer {
+    position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 16px;
+    width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.12); color: #fff;
+    border: none; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .lightbox-compteur {
+    position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.85); font-size: 0.8rem; font-variant-numeric: tabular-nums;
+  }
+  .lightbox-nav {
+    position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; border-radius: 50%;
+    background: rgba(255,255,255,0.12); color: #fff; border: none; font-size: 1.3rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .lightbox-prev { left: 10px; }
+  .lightbox-next { right: 10px; }
+  .lightbox-nav[hidden] { display: none; }
 
   .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 10; }
   .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; padding: 4px 22px; font-family: inherit; cursor: pointer; color: var(--text-faint); }
@@ -435,6 +464,14 @@
       <button type="button" class="btn-annuler" id="picker-annuler" data-i18n="pickerAnnuler">Annuler</button>
       <button type="button" class="btn-primary" id="picker-valider" data-i18n="pickerValider">Valider cette position</button>
     </div>
+  </div>
+
+  <div class="lightbox-overlay" id="lightbox-overlay" hidden>
+    <button type="button" class="lightbox-fermer" id="lightbox-fermer" data-i18n-aria-label="lightboxFermer" aria-label="Fermer">✕</button>
+    <img class="lightbox-img" id="lightbox-img" alt="">
+    <button type="button" class="lightbox-nav lightbox-prev" id="lightbox-prev" data-i18n-aria-label="lightboxPrecedent" aria-label="Photo précédente">‹</button>
+    <button type="button" class="lightbox-nav lightbox-next" id="lightbox-next" data-i18n-aria-label="lightboxSuivant" aria-label="Photo suivante">›</button>
+    <div class="lightbox-compteur" id="lightbox-compteur"></div>
   </div>
 
   <div class="confirm-overlay" id="confirm-overlay" hidden>

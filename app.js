@@ -519,7 +519,7 @@ function rendrePhotosGalerie() {
       const url = p.urlApercu || photosCache[p.photoId];
       const contenu = url ? `<img src="${url}" alt="">` : ICONE_PLACEHOLDER_PHOTO;
       return `
-        <div class="photo-vignette-form">
+        <div class="photo-vignette-form" data-index="${index}">
           ${contenu}
           <button type="button" class="photo-vignette-retirer" data-index="${index}" data-i18n-aria-label="formPhotoRetirer" aria-label="${t(currentLanguage, "formPhotoRetirer")}">✕</button>
         </div>
@@ -546,6 +546,40 @@ function retirerPhotoFormulaire(index) {
   const [retiree] = photosFormulaire.splice(index, 1);
   if (retiree && retiree.urlApercu) URL.revokeObjectURL(retiree.urlApercu);
   rendrePhotosGalerie();
+}
+
+// ---- Lightbox photo (issue #24) -- vue plein écran depuis la galerie
+// du formulaire, seul endroit où taper une vignette ne faisait rien.
+let lightboxUrls = [];
+let lightboxIndex = 0;
+
+function ouvrirLightbox(urls, indexDepart) {
+  lightboxUrls = urls;
+  lightboxIndex = indexDepart;
+  document.getElementById("lightbox-overlay").hidden = false;
+  afficherPhotoLightbox();
+}
+
+function fermerLightbox() {
+  document.getElementById("lightbox-overlay").hidden = true;
+}
+
+function afficherPhotoLightbox() {
+  document.getElementById("lightbox-img").src = lightboxUrls[lightboxIndex];
+  const plusieurs = lightboxUrls.length > 1;
+  document.getElementById("lightbox-compteur").textContent = plusieurs ? `${lightboxIndex + 1} / ${lightboxUrls.length}` : "";
+  document.getElementById("lightbox-prev").hidden = !plusieurs;
+  document.getElementById("lightbox-next").hidden = !plusieurs;
+}
+
+function lightboxPrecedente() {
+  lightboxIndex = (lightboxIndex - 1 + lightboxUrls.length) % lightboxUrls.length;
+  afficherPhotoLightbox();
+}
+
+function lightboxSuivante() {
+  lightboxIndex = (lightboxIndex + 1) % lightboxUrls.length;
+  afficherPhotoLightbox();
 }
 
 // Compresse/enregistre les photos nouvellement ajoutées, supprime
@@ -826,7 +860,32 @@ function initFormulaire() {
     }
     if (evenement.target.closest("#photo-ajouter")) {
       document.getElementById("champ-photo").click();
+      return;
     }
+    const vignette = evenement.target.closest(".photo-vignette-form");
+    if (vignette && evenement.target.tagName === "IMG") {
+      const urls = photosFormulaire.map((p) => p.urlApercu || photosCache[p.photoId]);
+      ouvrirLightbox(urls, Number(vignette.dataset.index));
+    }
+  });
+  document.getElementById("lightbox-fermer").addEventListener("click", fermerLightbox);
+  document.getElementById("lightbox-prev").addEventListener("click", lightboxPrecedente);
+  document.getElementById("lightbox-next").addEventListener("click", lightboxSuivante);
+  document.getElementById("lightbox-overlay").addEventListener("click", (evenement) => {
+    if (evenement.target.id === "lightbox-overlay") fermerLightbox();
+  });
+  let lightboxSwipeDepart = null;
+  const lightboxImg = document.getElementById("lightbox-img");
+  lightboxImg.addEventListener("touchstart", (evenement) => {
+    lightboxSwipeDepart = evenement.touches[0].clientX;
+  });
+  lightboxImg.addEventListener("touchend", (evenement) => {
+    if (lightboxSwipeDepart === null || lightboxUrls.length <= 1) return;
+    const delta = evenement.changedTouches[0].clientX - lightboxSwipeDepart;
+    lightboxSwipeDepart = null;
+    if (Math.abs(delta) < 40) return;
+    if (delta < 0) lightboxSuivante();
+    else lightboxPrecedente();
   });
   ["filtre-discipline", "filtre-distance", "filtre-lieu", "filtre-label"].forEach((id) => {
     document.getElementById(id).addEventListener("change", () => {

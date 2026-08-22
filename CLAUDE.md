@@ -552,3 +552,28 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   varier que le `scale()` du groupe englobant selon le contexte --
   jamais retoucher le `stroke-width` séparément par contexte, sous
   peine de proportions incohérentes d'un endroit à l'autre.
+
+## Lightbox photo (issue #24, 2026-08-22)
+
+Vue plein écran depuis la galerie du formulaire d'édition -- seul
+endroit où taper une vignette ne faisait rien auparavant (le reste du
+tap ouvrait déjà le formulaire depuis la Liste/Carte, pas de geste
+libre à réutiliser là). `#lightbox-overlay`, même patron que
+`.picker-overlay`/`.modal-overlay`, `z-index: 26` (au-dessus du
+formulaire 20 et du picker 25, sous la confirmation 30 -- jamais
+ouverts en même temps en usage normal, ordre gardé cohérent quand
+même). `lightboxUrls`/`lightboxIndex` : tableau d'URL déjà résolues
+(pas d'IDs -- réutilise `p.urlApercu || photosCache[p.photoId]`, déjà
+calculé par `rendrePhotosGalerie()`), pas de nouveau circuit de
+lecture. Navigation : boutons prev/next + swipe tactile
+(`touchstart`/`touchend`, seuil 40px), masqués/no-op si une seule
+photo. Fermeture : bouton ✕ **et** tap sur le fond (contrairement au
+formulaire qui ne se ferme que via "Annuler" pour ne pas perdre une
+saisie -- ici pure consultation, rien à perdre). Pas de pinch-to-zoom
+pour cette première version (`object-fit: contain` suffit à voir la
+photo en entier) -- à revoir si demandé après usage réel.
+
+Testé réellement (Selenium, photos factices injectées directement
+dans `photosFormulaire` -- pas de vrai flux caméra en headless) :
+ouverture au tap d'une vignette, compteur "2 / 3" correct, navigation
+suivante, fermeture au tap sur le fond.
