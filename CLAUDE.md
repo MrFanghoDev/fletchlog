@@ -595,3 +595,19 @@ réellement (Selenium ne simule pas facilement un vrai pinch tactile
 multi-touch en headless -- testé en appliquant directement le
 `transform` CSS résultant et en vérifiant sa remise à zéro au
 changement de photo, pas le geste tactile lui-même).
+
+**Coins des PNG blancs au lieu de transparents (2026-08-22, repéré par
+l'utilisateur)** : `Page.captureScreenshot` (CDP, utilisé pour générer
+`icon-192.png`/`icon-512.png` depuis `icon.svg`, voir plus haut)
+composite par défaut tout fond transparent sur du blanc opaque --
+confirmé via `identify -verbose` : les PNG générés n'avaient même pas
+de canal alpha (`color_type: 2`, Truecolor). Les coins hors du carré
+arrondi (transparents dans le SVG source, `rx` ne couvre pas tout le
+carré) ressortaient donc blancs plutôt que transparents. Corrigé en
+appelant `Emulation.setDefaultBackgroundColorOverride` avec une
+couleur alpha 0 avant la capture -- PNG résultant bien en RGBA
+(`color_type: 6`), coins à `rgba(0,0,0,0)` vérifié au pixel. **Leçon**
+: toujours vérifier `color_type`/canal alpha d'un PNG généré via
+capture de page (`identify -verbose`), pas seulement ses dimensions --
+une capture peut très bien avoir les bonnes dimensions et un fond
+opaque là où il devrait être transparent.
