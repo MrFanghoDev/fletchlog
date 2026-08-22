@@ -524,3 +524,31 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   navigation directe dans le navigateur (pas seulement inlinés dans
   une page HTML) -- les deux contextes de parsing ne se comportent
   pas pareil face à un XML invalide.
+
+  **Deuxième vrai bug repéré par l'utilisateur, deux au total sur ce
+  seul commit #22** : la génération de `icon-192.png`/`icon-512.png`
+  via `element.screenshot()` (Selenium) déformait légèrement le SVG en
+  hauteur -- capture non pas juste avec une bande blanche inutile en
+  bas, mais un carré arrondi visiblement écrasé/coupé (512×473 et
+  192×153 de contenu réel dans un canevas 512×512/192×192, vérifié par
+  un `-trim`). Corrigé en remplaçant `element.screenshot()` par
+  `Page.captureScreenshot` (CDP) avec un `clip` explicite aux
+  dimensions cibles -- fiable, contenu occupant tout le canevas
+  (`-trim` confirme 512×512/192×192 pile). **Leçon** : ne pas utiliser
+  `element.screenshot()` de Selenium pour rasteriser un SVG à une
+  taille précise -- toujours vérifier par un `-trim` que le contenu
+  réel occupe bien tout le canevas attendu, pas seulement que les
+  dimensions du fichier sont correctes.
+
+  Et un troisième repéré par l'utilisateur, de proportion cette fois :
+  les marques d'en-tête/hero (`app.html`, `aide.html`, `index.html`,
+  `ICONE_PLACEHOLDER_PHOTO`) avaient hérité du liseré 1.6/1.05 dérivé
+  du marqueur de carte (jamais épaissi, resté à 6/4) plutôt que du
+  liseré du logo une fois celui-ci épaissi à 7/4 -- visuellement trop
+  fin comparé à `icon.svg`. Le stroke-width d'un `<path>` étant
+  proportionnel à l'échelle de son groupe ancêtre, la bonne pratique
+  est de garder exactement les mêmes valeurs de `stroke-width` que
+  `icon.svg` (7/4) partout où c'est la même plume, et de ne faire
+  varier que le `scale()` du groupe englobant selon le contexte --
+  jamais retoucher le `stroke-width` séparément par contexte, sous
+  peine de proportions incohérentes d'un endroit à l'autre.
