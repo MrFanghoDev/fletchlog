@@ -13,8 +13,9 @@
      fletchapps/index.html et fletchtime/web/index.html. */
   body { display: flex; flex-direction: column; align-items: center; padding: 5.5rem 1.25rem 2rem; min-height: 100vh; box-sizing: border-box; }
   .hero { display: flex; flex-direction: column; align-items: center; text-align: center; max-width: 560px; }
-  .hero svg.mark { height: 4.5rem; width: 4.5rem; margin-bottom: 1.1rem; }
-  .hero h1 { font-size: 2rem; margin: 0 0 0.4rem; }
+  .hero svg.mark { height: 186px; width: 186px; margin-bottom: 1.1rem; }
+  .hero h1 { display: block; font-size: 2rem; margin: 0 0 0.4rem; }
+  .hero h1 .log { color: var(--gold); }
   .hero .tagline { color: var(--text-muted); font-size: 1.02rem; margin: 0 0 0.6rem; line-height: 1.5; }
   .hero .blurb { color: var(--text-faint); font-size: 0.9rem; line-height: 1.6; max-width: 480px; }
 
@@ -67,7 +68,7 @@
       </g>
       <circle cx="12" cy="15.94" r="0.5625" fill="var(--gold)"/>
     </svg>
-    <h1>FletchLog</h1>
+    <h1>Fletch<span class="log">Log</span></h1>
     <p class="tagline" data-i18n="homeTagline">Carnet personnel pour archers FFTL/IFAA -- lieux, cibles, disciplines.</p>
     <p class="blurb" data-i18n="homeBlurb">Mémorise où et sur quoi tu as tiré : lieu, cible, discipline, distance, météo, photo. Entraînement informel et tir nature compris, pas seulement les compétitions officielles. Installable sur ton téléphone, fonctionne hors connexion, aucune donnée envoyée sur un serveur.</p>
   </div>
