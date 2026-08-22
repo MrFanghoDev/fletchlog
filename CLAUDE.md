@@ -577,3 +577,21 @@ Testé réellement (Selenium, photos factices injectées directement
 dans `photosFormulaire` -- pas de vrai flux caméra en headless) :
 ouverture au tap d'une vignette, compteur "2 / 3" correct, navigation
 suivante, fermeture au tap sur le fond.
+
+**Pinch-to-zoom + pan (2026-08-22, retour utilisateur)** : ajouté après
+coup à la même lightbox. Un doigt déplace l'image (pan) seulement
+quand `lightboxZoom > 1`, sinon un doigt déclenche le swipe prev/next
+existant -- sans cette distinction, se déplacer dans une photo zoomée
+changerait de photo par erreur. `touch-action: none` sur `.lightbox-img`
+(remplace `pan-y`) -- tout le geste tactile (pan, pinch, swipe) est
+géré à la main en JS, le navigateur ne doit rien intercepter lui-même.
+`touchmove` du pinch/pan appelle `preventDefault()`, donc listener posé
+en `{ passive: false }` (sinon `preventDefault()` est silencieusement
+ignoré). Zoom/pan réinitialisés à chaque changement de photo
+(`afficherPhotoLightbox()`) et à l'ouverture. Pas de bornes de pan
+(l'image peut sortir de l'écran si on pousse fort) -- acceptable pour
+une première version, à revoir si ça gêne à l'usage réel. Vérifié
+réellement (Selenium ne simule pas facilement un vrai pinch tactile
+multi-touch en headless -- testé en appliquant directement le
+`transform` CSS résultant et en vérifiant sa remise à zéro au
+changement de photo, pas le geste tactile lui-même).

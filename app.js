@@ -565,6 +565,7 @@ function fermerLightbox() {
 }
 
 function afficherPhotoLightbox() {
+  reinitialiserZoomLightbox();
   document.getElementById("lightbox-img").src = lightboxUrls[lightboxIndex];
   const plusieurs = lightboxUrls.length > 1;
   document.getElementById("lightbox-compteur").textContent = plusieurs ? `${lightboxIndex + 1} / ${lightboxUrls.length}` : "";
@@ -580,6 +581,31 @@ function lightboxPrecedente() {
 function lightboxSuivante() {
   lightboxIndex = (lightboxIndex + 1) % lightboxUrls.length;
   afficherPhotoLightbox();
+}
+
+// Pinch-to-zoom + pan (issue #24, retour utilisateur) -- un doigt
+// déplace l'image quand elle est zoomée, deux doigts zooment. Le
+// swipe prev/next (déjà en place) ne s'active qu'à zoom 1 (voir
+// initFormulaire()) -- sinon un geste d'un doigt pour se déplacer
+// dans une photo zoomée changerait de photo par erreur.
+const LIGHTBOX_ZOOM_MAX = 4;
+let lightboxZoom = 1;
+let lightboxPanX = 0;
+let lightboxPanY = 0;
+
+function reinitialiserZoomLightbox() {
+  lightboxZoom = 1;
+  lightboxPanX = 0;
+  lightboxPanY = 0;
+  document.getElementById("lightbox-img").style.transform = "";
+}
+
+function appliquerZoomLightbox() {
+  document.getElementById("lightbox-img").style.transform = `translate(${lightboxPanX}px, ${lightboxPanY}px) scale(${lightboxZoom})`;
+}
+
+function distanceTactile(touches) {
+  return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
 }
 
 // Compresse/enregistre les photos nouvellement ajoutées, supprime
@@ -875,14 +901,47 @@ function initFormulaire() {
     if (evenement.target.id === "lightbox-overlay") fermerLightbox();
   });
   let lightboxSwipeDepart = null;
+  let lightboxPinchDistanceDepart = 0;
+  let lightboxZoomDepart = 1;
+  let lightboxDragDepart = null;
   const lightboxImg = document.getElementById("lightbox-img");
   lightboxImg.addEventListener("touchstart", (evenement) => {
-    lightboxSwipeDepart = evenement.touches[0].clientX;
+    if (evenement.touches.length === 2) {
+      lightboxPinchDistanceDepart = distanceTactile(evenement.touches);
+      lightboxZoomDepart = lightboxZoom;
+    } else if (evenement.touches.length === 1) {
+      if (lightboxZoom > 1) {
+        lightboxDragDepart = { x: evenement.touches[0].clientX - lightboxPanX, y: evenement.touches[0].clientY - lightboxPanY };
+      } else {
+        lightboxSwipeDepart = evenement.touches[0].clientX;
+      }
+    }
   });
+  lightboxImg.addEventListener(
+    "touchmove",
+    (evenement) => {
+      if (evenement.touches.length === 2) {
+        evenement.preventDefault();
+        const distance = distanceTactile(evenement.touches);
+        lightboxZoom = Math.min(LIGHTBOX_ZOOM_MAX, Math.max(1, lightboxZoomDepart * (distance / lightboxPinchDistanceDepart)));
+        appliquerZoomLightbox();
+      } else if (evenement.touches.length === 1 && lightboxDragDepart) {
+        evenement.preventDefault();
+        lightboxPanX = evenement.touches[0].clientX - lightboxDragDepart.x;
+        lightboxPanY = evenement.touches[0].clientY - lightboxDragDepart.y;
+        appliquerZoomLightbox();
+      }
+    },
+    { passive: false }
+  );
   lightboxImg.addEventListener("touchend", (evenement) => {
-    if (lightboxSwipeDepart === null || lightboxUrls.length <= 1) return;
-    const delta = evenement.changedTouches[0].clientX - lightboxSwipeDepart;
+    lightboxDragDepart = null;
+    if (lightboxZoom <= 1.02) reinitialiserZoomLightbox();
+    if (evenement.touches.length > 0) return; // encore des doigts posés (fin de pinch) -- pas une fin de swipe
+    const depart = lightboxSwipeDepart;
     lightboxSwipeDepart = null;
+    if (depart === null || lightboxZoom > 1 || lightboxUrls.length <= 1) return;
+    const delta = evenement.changedTouches[0].clientX - depart;
     if (Math.abs(delta) < 40) return;
     if (delta < 0) lightboxSuivante();
     else lightboxPrecedente();
