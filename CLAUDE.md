@@ -500,3 +500,27 @@ et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
   (Chromium) avant de conclure. `icon-192.png`/`icon-512.png`
   régénérés via une capture Selenium de l'élément `<svg>` (élément
   screenshot, pas `rsvg-convert`) pour cette raison.
+
+  **Vrai bug introduit dans ce même commit, repéré par l'utilisateur** :
+  le commentaire ajouté dans `icon.svg` ("issue #22 -- remplace...")
+  réutilisait le `--` comme séparateur de clause, convention de ce
+  projet dans les commentaires JS/HTML -- invalide dans un commentaire
+  XML (même piège déjà documenté ci-dessus pour l'anneau de la cible,
+  reproduit ici sans y repenser). Contrairement aux commentaires
+  inline des fichiers `.html` (parseur HTML, tolérant), `icon.svg` est
+  chargé comme document XML autonome via `<link rel="icon"
+  href="icon.svg" type="image/svg+xml">` sur les trois pages -- un
+  vrai navigateur (pas seulement `rsvg-convert`) refuse de le parser
+  et affiche une page d'erreur à la place du favicon. Vérifié en
+  vrai : `rsvg-convert` donnait déjà l'erreur exacte ("Double hyphen
+  within comment"), et une navigation Chromium directe vers le
+  `icon.svg` publié sur GitHub Pages affichait un `parsererror` au
+  lieu du logo -- corrigé (virgule à la place du `--`), reconfirmé
+  affiché correctement en navigation directe après coup. PNG non
+  regénérés (contenu du commentaire sans effet sur le rendu une fois
+  le parsing réussi, octets identiques avant/après). **Leçon** : après
+  ce genre de correctif, revérifier aussi les fichiers `.svg`
+  autonomes chargés en `<link rel="icon">`/`<img src>` par une vraie
+  navigation directe dans le navigateur (pas seulement inlinés dans
+  une page HTML) -- les deux contextes de parsing ne se comportent
+  pas pareil face à un XML invalide.

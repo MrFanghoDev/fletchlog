@@ -7,7 +7,7 @@
   <ellipse cx="256" cy="340" rx="150" ry="62" fill="none" stroke="#d1a13d" stroke-width="24"/>
   <ellipse cx="256" cy="340" rx="88" ry="36" fill="none" stroke="#0f1216" stroke-width="30"/>
   <ellipse cx="256" cy="340" rx="88" ry="36" fill="none" stroke="#d1a13d" stroke-width="24"/>
-  <!-- Plume (issue #22 -- remplace le pin, même tracé que
+  <!-- Plume (issue #22, remplace le pin, même tracé que
        fletchapps/icon.svg), fût jusqu'au centre de la cible -->
   <g transform="translate(256,224.2) scale(6.2) translate(-44.843,-39.079)">
     <path stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#0f1216"
