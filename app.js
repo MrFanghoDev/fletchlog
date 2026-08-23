@@ -253,7 +253,7 @@ function rafraichirListe() {
   conteneur.hidden = entreesActuelles.length === 0;
 
   conteneur.querySelectorAll(".carte-entree").forEach((bouton) => {
-    bouton.addEventListener("click", () => ouvrirFormulaire(bouton.dataset.id));
+    bouton.addEventListener("click", () => afficherDetail(bouton.dataset.id));
   });
 }
 
@@ -385,7 +385,7 @@ function afficherApercuCarte(entree, marker) {
     ${ICONE_CHEVRON}
   `;
   apercu.hidden = false;
-  apercu.onclick = () => ouvrirFormulaire(entree.id);
+  apercu.onclick = () => afficherDetail(entree.id);
 }
 
 // Rendu Leaflet effectif -- séparé de rafraichirCarte() pour ne
@@ -779,6 +779,72 @@ function validerPickerPosition() {
   fermerPickerPosition();
 }
 
+// ---- Détail de sortie (retour utilisateur -- mode non éditable par
+// défaut) -- vue de consultation, ouverte au tap d'une carte Liste ou
+// de l'aperçu Carte. "Modifier" ouvre ouvrirFormulaire() par-dessus.
+// Réutilise idEnEdition (même variable que le formulaire -- les deux
+// écrans ne sont jamais ouverts en même temps) pour que
+// supprimerDepuisDetail() partage sa logique avec
+// supprimerDepuisFormulaire() (voir supprimerEntreeConfirmee()).
+
+function ligneDetail(labelCle, valeur) {
+  if (!valeur || !String(valeur).trim()) return "";
+  return `<div class="detail-ligne"><span class="detail-label">${t(currentLanguage, labelCle)}</span><span class="detail-valeur">${_echapperTexte(String(valeur))}</span></div>`;
+}
+
+function afficherDetail(id) {
+  const entree = entreesActuelles.find((e) => e.id === id);
+  if (!entree) return;
+  idEnEdition = id;
+
+  const idsPhotos = entree.photoIds || [];
+  const galerie = document.getElementById("detail-galerie");
+  galerie.hidden = idsPhotos.length === 0;
+  galerie.innerHTML = idsPhotos
+    .map((photoId, index) => {
+      const url = photosCache[photoId];
+      return `<div class="detail-vignette" data-index="${index}">${url ? `<img src="${url}" alt="">` : ICONE_PLACEHOLDER_PHOTO}</div>`;
+    })
+    .join("");
+
+  const aTitreReel = entree.titre && entree.titre.trim();
+  const meteoIcone = ICONES_METEO[entree.meteo];
+  const meteoLigne =
+    entree.meteo !== "aucune" && meteoIcone
+      ? `<div class="detail-meteo">${meteoIcone}<span>${_echapperTexte(t(currentLanguage, "meteo" + entree.meteo.charAt(0).toUpperCase() + entree.meteo.slice(1)))}</span></div>`
+      : "";
+  const labelsLigne = (entree.labels || []).length
+    ? `<div class="detail-labels">${entree.labels.map((l) => `<span class="badge-label">${_echapperTexte(l)}</span>`).join("")}</div>`
+    : "";
+  const commentaireLigne =
+    entree.commentaire && entree.commentaire.trim() ? `<p class="detail-commentaire">${_echapperTexte(entree.commentaire)}</p>` : "";
+  // Pas tf(..., "positionCoordonnees", ...) ici -- cette clé inclut déjà
+  // "Position :" en préfixe (faite pour un contexte sans label séparé),
+  // ce qui doublerait avec le label posé par ligneDetail() plus bas.
+  const positionTexte =
+    entree.lat != null && entree.lon != null ? `${entree.lat.toFixed(5)}, ${entree.lon.toFixed(5)}` : t(currentLanguage, "positionAbsente");
+
+  document.getElementById("detail-corps").innerHTML = `
+    <h2>${_echapperTexte(aTitreReel ? entree.titre : entree.lieu)}</h2>
+    ${ligneDetail("formLieuLabel", entree.lieu)}
+    ${ligneDetail("formCibleLabel", entree.cible)}
+    ${ligneDetail("formDisciplineLabel", entree.discipline)}
+    ${ligneDetail("formDistanceLabel", entree.distance)}
+    ${ligneDetail("formDateLabel", formaterDate(entree.date))}
+    ${ligneDetail("positionLabel", positionTexte)}
+    ${labelsLigne}
+    ${meteoLigne}
+    ${commentaireLigne}
+  `;
+
+  document.getElementById("detail-overlay").hidden = false;
+}
+
+function fermerDetail() {
+  document.getElementById("detail-overlay").hidden = true;
+  idEnEdition = null;
+}
+
 // ---- Formulaire d'ajout/édition ------------------------------------
 
 function ouvrirFormulaire(id) {
@@ -905,23 +971,50 @@ function demanderConfirmation(message) {
   });
 }
 
-function supprimerDepuisFormulaire() {
-  if (!idEnEdition) return;
-  const entree = entreesActuelles.find((e) => e.id === idEnEdition);
-  demanderConfirmation(t(currentLanguage, "confirmSuppression")).then((confirme) => {
+// Partagée entre le formulaire et l'écran de détail -- même
+// enchaînement (confirmation -> suppression entrée + photos -> toast
+// + rechargement), seul l'écran à refermer une fois fini diffère.
+function supprimerEntreeConfirmee(id, fermerOverlay) {
+  const entree = entreesActuelles.find((e) => e.id === id);
+  return demanderConfirmation(t(currentLanguage, "confirmSuppression")).then((confirme) => {
     if (!confirme) return;
-    supprimerEntree(idEnEdition)
-      .then(() => Promise.all((entree?.photoIds || []).map((id) => supprimerPhoto(id).catch(() => {}))))
+    return supprimerEntree(id)
+      .then(() => Promise.all((entree?.photoIds || []).map((pid) => supprimerPhoto(pid).catch(() => {}))))
       .then(() => {
-        fermerFormulaire();
+        fermerOverlay();
         afficherToast(t(currentLanguage, "toastSupprime"));
         chargerEntrees();
       });
   });
 }
 
+function supprimerDepuisFormulaire() {
+  if (!idEnEdition) return;
+  supprimerEntreeConfirmee(idEnEdition, fermerFormulaire);
+}
+
+function supprimerDepuisDetail() {
+  if (!idEnEdition) return;
+  supprimerEntreeConfirmee(idEnEdition, fermerDetail);
+}
+
 function initFormulaire() {
   document.getElementById("fab-add").addEventListener("click", () => ouvrirFormulaire(null));
+  document.getElementById("detail-fermer").addEventListener("click", fermerDetail);
+  document.getElementById("detail-supprimer").addEventListener("click", supprimerDepuisDetail);
+  document.getElementById("detail-modifier").addEventListener("click", () => {
+    const id = idEnEdition;
+    document.getElementById("detail-overlay").hidden = true;
+    ouvrirFormulaire(id);
+  });
+  document.getElementById("detail-galerie").addEventListener("click", (evenement) => {
+    const vignette = evenement.target.closest(".detail-vignette");
+    if (!vignette) return;
+    const entree = entreesActuelles.find((e) => e.id === idEnEdition);
+    if (!entree) return;
+    const urls = (entree.photoIds || []).map((photoId) => photosCache[photoId]);
+    ouvrirLightbox(urls, Number(vignette.dataset.index));
+  });
   document.getElementById("form-annuler").addEventListener("click", fermerFormulaire);
   document.getElementById("form-supprimer").addEventListener("click", supprimerDepuisFormulaire);
   document.getElementById("form-entree").addEventListener("submit", soumettreFormulaire);

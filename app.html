@@ -160,6 +160,34 @@
   .fab { position: fixed; right: 20px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: 56px; height: 56px; border-radius: 50%; background: var(--gold); border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 18px rgba(0,0,0,0.35); color: #1a1206; cursor: pointer; z-index: 15; }
   .fab svg { display: block; }
 
+  /* Détail de sortie -- vue de consultation dédiée (retour utilisateur :
+     mode non éditable par défaut), ouverte au tap d'une carte Liste ou
+     de l'aperçu Carte (plus le formulaire d'édition directement comme
+     avant). "Modifier" ouvre le formulaire classique par-dessus, cet
+     écran se ferme d'abord -- jamais les deux affichés en même temps,
+     même z-index que .modal-overlay (ci-dessous). */
+  .detail-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 20; display: flex; flex-direction: column; overflow-y: auto; }
+  .detail-overlay[hidden] { display: none; }
+  .detail-header { position: sticky; top: 0; display: flex; justify-content: flex-end; padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 0; background: var(--bg); }
+  .detail-fermer {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); color: var(--text);
+    border: none; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .detail-galerie { display: flex; gap: 8px; overflow-x: auto; padding: 14px 16px 0; }
+  .detail-galerie[hidden] { display: none; }
+  .detail-vignette { width: 96px; height: 96px; border-radius: 12px; background: var(--surface-2); flex-shrink: 0; overflow: hidden; cursor: pointer; }
+  .detail-vignette img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .detail { padding: 14px 20px calc(env(safe-area-inset-bottom, 0px) + 20px); display: flex; flex-direction: column; gap: 4px; max-width: 480px; margin: 0 auto; width: 100%; }
+  .detail h2 { font-size: 1.3rem; margin: 6px 0 10px; }
+  .detail-ligne { display: flex; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  .detail-ligne .detail-label { color: var(--text-muted); flex: 0 0 110px; }
+  .detail-ligne .detail-valeur { color: var(--text); flex: 1; }
+  .detail-commentaire { font-size: 0.9rem; color: var(--text); line-height: 1.5; padding: 12px 0; border-bottom: 1px solid var(--border); white-space: pre-wrap; margin: 0; }
+  .detail-labels { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .detail-meteo { display: flex; align-items: center; gap: 6px; padding: 12px 0; font-size: 0.9rem; color: var(--text-muted); }
+  .detail-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .detail-actions button { flex: 1; }
+
   /* Formulaire d'ajout/édition -- superposition plein écran, reprend
      .field/.field label/input[type=text]/select/.btn-primary de
      theme.css (voir sa section "Champs de formulaire"). */
@@ -394,6 +422,20 @@
   </button>
 
   <div class="toast" id="toast" hidden></div>
+
+  <div class="detail-overlay" id="detail-overlay" hidden>
+    <div class="detail-header">
+      <button type="button" class="detail-fermer" id="detail-fermer" data-i18n-aria-label="lightboxFermer" aria-label="Fermer">✕</button>
+    </div>
+    <div class="detail-galerie" id="detail-galerie" hidden></div>
+    <div class="detail">
+      <div id="detail-corps"></div>
+      <div class="detail-actions">
+        <button type="button" class="btn-supprimer" id="detail-supprimer" data-i18n="formSupprimer">Supprimer</button>
+        <button type="button" class="btn-primary" id="detail-modifier" data-i18n="detailModifier">Modifier</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-overlay" id="form-overlay" hidden>
     <div class="modal">

@@ -729,3 +729,48 @@ l'excédent (s'il y en a) est la borne. Vérifié réellement (calcul
 direct) : image plus petite que l'écran même zoomée -> pan forcé à 0
 (rien à borner) ; image plus grande -> pan clampé exactement à la
 valeur attendue.
+
+## Détail de sortie : mode non éditable par défaut (2026-08-23, retour
+utilisateur)
+
+Taper une carte Liste ou l'aperçu Carte ouvrait direct le formulaire
+d'édition -- ouvre maintenant un écran de détail en lecture seule
+(`#detail-overlay`), avec un bouton "Modifier" qui ouvre le formulaire
+classique par-dessus (celui-ci se ferme d'abord, jamais les deux
+affichés en même temps). Décision explicitement posée à l'utilisateur
+plutôt que devinée : formulaire existant avec champs désactivés
+(rapide, réutilise tout) vs un vrai écran de consultation dédié (plus
+soigné, plus de code) -- **le second a été choisi**.
+
+`idEnEdition` (même variable que le formulaire, jamais les deux
+écrans ouverts en même temps) sert aussi à l'écran de détail, pour que
+`supprimerDepuisDetail()` partage sa logique avec
+`supprimerDepuisFormulaire()` (factorisées dans
+`supprimerEntreeConfirmee(id, fermerOverlay)`).
+
+Labels réutilisés tels quels depuis le formulaire (`formLieuLabel`,
+`formCibleLabel`, etc.) -- ce sont déjà de simples noms ("Lieu",
+"Discipline"...), pas de texte spécifique au formulaire, pas besoin de
+dupliquer en clés i18n séparées. Seule vraie nouvelle clé :
+`detailModifier`.
+
+**Piège rencontré** : `tf(currentLanguage, "positionCoordonnees",
+...)` inclut déjà "Position :" en préfixe (pensée à l'origine pour un
+contexte sans label séparé, voir `rafraichirStatutPosition()`) --
+utilisée telle quelle à côté du label "Position" déjà posé par
+`ligneDetail()`, ça affichait "Position Position : 48.5, 2.7" en
+double. Corrigé en formatant juste `${lat}, ${lon}` directement pour
+ce contexte-ci, sans repasser par cette clé.
+
+Galerie photo réutilise `ouvrirLightbox()` tel quel (tap sur une
+vignette -> plein écran, zoom/pan/carrousel déjà en place) -- aucune
+nouvelle logique de zoom/navigation à écrire ici, juste la
+construction des vignettes et le passage des URL déjà résolues via
+`photosCache`.
+
+Vérifié réellement (Selenium, entrées factices injectées dans
+`entreesActuelles`) : contenu du détail correct (y compris repli sur
+le lieu si pas de titre, `formaterDate()`, galerie masquée si aucune
+photo, "Pas de position enregistrée" si aucune position), tap photo ->
+lightbox, tap "Modifier" -> formulaire pré-rempli avec le bon id,
+confirmation de suppression affichée et annulation sans effet.
