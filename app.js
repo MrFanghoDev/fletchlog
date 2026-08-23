@@ -550,58 +550,85 @@ function retirerPhotoFormulaire(index) {
 
 // ---- Lightbox photo (issue #24) -- vue plein écran depuis la galerie
 // du formulaire, seul endroit où taper une vignette ne faisait rien.
+// Carrousel à 3 volets (prev/courant/suivant, retour utilisateur --
+// un simple fondu ne rendait pas "fluide" : les photos doivent glisser
+// collées à l'écran pendant le geste, pas juste s'estomper une fois le
+// doigt relevé). Voir .lightbox-track dans app.html.
 let lightboxUrls = [];
 let lightboxIndex = 0;
 
 function ouvrirLightbox(urls, indexDepart) {
   lightboxUrls = urls;
   lightboxIndex = indexDepart;
+  const track = document.getElementById("lightbox-track");
+  track.classList.remove("lightbox-track-anim");
+  track.style.transform = "translateX(-33.3333%)";
+  reinitialiserZoomLightbox();
+  majPhotosLightbox();
   document.getElementById("lightbox-overlay").hidden = false;
-  afficherPhotoLightbox(false);
 }
 
 function fermerLightbox() {
   document.getElementById("lightbox-overlay").hidden = true;
 }
 
-// animer: fondu enchaîné entre deux photos (navigation prev/next) --
-// pas à l'ouverture initiale, où il n'y a rien à faire fondre depuis.
-// Classe .lightbox-anim (@keyframes, voir app.html) plutôt qu'une
-// transition sur opacity -- une transition dépend de l'ordre exact des
-// peintures avant/après le changement de src (constaté cassé sur un
-// vrai appareil malgré un double requestAnimationFrame, voir
-// CLAUDE.md), une animation @keyframes rejoue toujours sa timeline
-// complète dès qu'elle démarre.
-function afficherPhotoLightbox(animer) {
-  reinitialiserZoomLightbox();
-  const img = document.getElementById("lightbox-img");
-  img.src = lightboxUrls[lightboxIndex];
-  img.classList.remove("lightbox-anim");
-  if (animer) {
-    void img.offsetWidth; // force un reflow pour pouvoir rejouer l'animation
-    img.classList.add("lightbox-anim");
-  }
-  const plusieurs = lightboxUrls.length > 1;
-  document.getElementById("lightbox-compteur").textContent = plusieurs ? `${lightboxIndex + 1} / ${lightboxUrls.length}` : "";
+function majPhotosLightbox() {
+  const n = lightboxUrls.length;
+  document.getElementById("lightbox-img-prev").src = lightboxUrls[(lightboxIndex - 1 + n) % n];
+  document.getElementById("lightbox-img-courant").src = lightboxUrls[lightboxIndex];
+  document.getElementById("lightbox-img-suivant").src = lightboxUrls[(lightboxIndex + 1) % n];
+  const plusieurs = n > 1;
+  document.getElementById("lightbox-compteur").textContent = plusieurs ? `${lightboxIndex + 1} / ${n}` : "";
   document.getElementById("lightbox-prev").hidden = !plusieurs;
   document.getElementById("lightbox-next").hidden = !plusieurs;
 }
 
+// direction: -1 (précédente) ou 1 (suivante) -- anime la piste jusqu'à
+// révéler entièrement le volet voisin, puis bascule l'index et
+// remet la piste au centre sans transition (les volets prev/suivant
+// ont entre-temps été rechargés sur les nouveaux voisins -- voir
+// terminerDeplacementLightbox() -- donc rien ne "saute" visuellement).
+function deplacerLightbox(direction) {
+  if (lightboxUrls.length <= 1) return;
+  const track = document.getElementById("lightbox-track");
+  track.classList.add("lightbox-track-anim");
+  track.style.transform = `translateX(${direction === 1 ? "-66.6667%" : "0%"})`;
+  track.addEventListener("transitionend", () => terminerDeplacementLightbox(direction), { once: true });
+}
+
+function terminerDeplacementLightbox(direction) {
+  lightboxIndex = (lightboxIndex + direction + lightboxUrls.length) % lightboxUrls.length;
+  majPhotosLightbox();
+  const track = document.getElementById("lightbox-track");
+  track.classList.remove("lightbox-track-anim"); // reset instantané, pas de transition ici
+  track.style.transform = "translateX(-33.3333%)";
+  reinitialiserZoomLightbox();
+}
+
+// Glissement relâché sous le seuil -- revient au centre (petit effet
+// rebond), aucun changement de photo.
+function annulerGlissementLightbox() {
+  const track = document.getElementById("lightbox-track");
+  track.classList.add("lightbox-track-anim");
+  track.style.transform = "translateX(-33.3333%)";
+  track.addEventListener("transitionend", () => track.classList.remove("lightbox-track-anim"), { once: true });
+}
+
 function lightboxPrecedente() {
-  lightboxIndex = (lightboxIndex - 1 + lightboxUrls.length) % lightboxUrls.length;
-  afficherPhotoLightbox(true);
+  deplacerLightbox(-1);
 }
 
 function lightboxSuivante() {
-  lightboxIndex = (lightboxIndex + 1) % lightboxUrls.length;
-  afficherPhotoLightbox(true);
+  deplacerLightbox(1);
 }
 
 // Pinch-to-zoom + pan (issue #24, retour utilisateur) -- un doigt
 // déplace l'image quand elle est zoomée, deux doigts zooment. Le
-// swipe prev/next (déjà en place) ne s'active qu'à zoom 1 (voir
+// glissement de piste (déjà en place) ne s'active qu'à zoom 1 (voir
 // initFormulaire()) -- sinon un geste d'un doigt pour se déplacer
-// dans une photo zoomée changerait de photo par erreur.
+// dans une photo zoomée changerait de photo par erreur. S'applique
+// seulement au volet "courant" -- les volets voisins ne sont jamais
+// zoomés (ils redeviennent "courant" à zoom 1 en glissant dessus).
 const LIGHTBOX_ZOOM_MAX = 4;
 let lightboxZoom = 1;
 let lightboxPanX = 0;
@@ -611,7 +638,7 @@ function reinitialiserZoomLightbox() {
   lightboxZoom = 1;
   lightboxPanX = 0;
   lightboxPanY = 0;
-  document.getElementById("lightbox-img").style.transform = "";
+  document.getElementById("lightbox-img-courant").style.transform = "";
 }
 
 // Borne le pan pour ne jamais laisser un bord de la photo (zoomée)
@@ -620,7 +647,7 @@ function reinitialiserZoomLightbox() {
 // de mise en page, "contain" à zoom 1) ne bougent pas avec transform :
 // scale(), donc x lightboxZoom donne la taille réellement affichée.
 function appliquerZoomLightbox() {
-  const img = document.getElementById("lightbox-img");
+  const img = document.getElementById("lightbox-img-courant");
   const overlay = document.getElementById("lightbox-overlay");
   const largeurAffichee = img.offsetWidth * lightboxZoom;
   const hauteurAffichee = img.offsetHeight * lightboxZoom;
@@ -927,24 +954,39 @@ function initFormulaire() {
   document.getElementById("lightbox-overlay").addEventListener("click", (evenement) => {
     if (evenement.target.id === "lightbox-overlay") fermerLightbox();
   });
-  let lightboxSwipeDepart = null;
+  // Un seul jeu d'écouteurs sur la piste couvre pinch-zoom, pan (zoom
+  // > 1) et glissement entre photos (zoom == 1) -- la piste occupe
+  // tout l'écran visible, peu importe le volet techniquement sous le
+  // doigt. Tap sur le fond (pas sur l'image, mouvement minime) ferme
+  // la lightbox -- même geste que le tap sur #lightbox-overlay
+  // (ci-dessus, click) mais nécessaire ici en plus : touch-action:
+  // none supprime le click synthétique qui suivrait normalement un tap
+  // tactile, .lightbox-overlay ne le recevrait donc jamais au doigt.
+  let lightboxToucheDepartX = null;
+  let lightboxToucheDepartY = null;
+  let lightboxToucheDepartCible = null;
+  let lightboxGlissement = false;
   let lightboxPinchDistanceDepart = 0;
   let lightboxZoomDepart = 1;
   let lightboxDragDepart = null;
-  const lightboxImg = document.getElementById("lightbox-img");
-  lightboxImg.addEventListener("touchstart", (evenement) => {
+  const lightboxTrack = document.getElementById("lightbox-track");
+  lightboxTrack.addEventListener("touchstart", (evenement) => {
     if (evenement.touches.length === 2) {
       lightboxPinchDistanceDepart = distanceTactile(evenement.touches);
       lightboxZoomDepart = lightboxZoom;
     } else if (evenement.touches.length === 1) {
+      lightboxToucheDepartX = evenement.touches[0].clientX;
+      lightboxToucheDepartY = evenement.touches[0].clientY;
+      lightboxToucheDepartCible = evenement.target;
       if (lightboxZoom > 1) {
         lightboxDragDepart = { x: evenement.touches[0].clientX - lightboxPanX, y: evenement.touches[0].clientY - lightboxPanY };
+        lightboxGlissement = false;
       } else {
-        lightboxSwipeDepart = evenement.touches[0].clientX;
+        lightboxGlissement = true;
       }
     }
   });
-  lightboxImg.addEventListener(
+  lightboxTrack.addEventListener(
     "touchmove",
     (evenement) => {
       if (evenement.touches.length === 2) {
@@ -957,21 +999,33 @@ function initFormulaire() {
         lightboxPanX = evenement.touches[0].clientX - lightboxDragDepart.x;
         lightboxPanY = evenement.touches[0].clientY - lightboxDragDepart.y;
         appliquerZoomLightbox();
+      } else if (evenement.touches.length === 1 && lightboxGlissement) {
+        evenement.preventDefault();
+        const delta = evenement.touches[0].clientX - lightboxToucheDepartX;
+        lightboxTrack.style.transform = `translateX(calc(-33.3333% + ${delta}px))`;
       }
     },
     { passive: false }
   );
-  lightboxImg.addEventListener("touchend", (evenement) => {
+  lightboxTrack.addEventListener("touchend", (evenement) => {
     lightboxDragDepart = null;
     if (lightboxZoom <= 1.02) reinitialiserZoomLightbox();
-    if (evenement.touches.length > 0) return; // encore des doigts posés (fin de pinch) -- pas une fin de swipe
-    const depart = lightboxSwipeDepart;
-    lightboxSwipeDepart = null;
-    if (depart === null || lightboxZoom > 1 || lightboxUrls.length <= 1) return;
-    const delta = evenement.changedTouches[0].clientX - depart;
-    if (Math.abs(delta) < 40) return;
-    if (delta < 0) lightboxSuivante();
-    else lightboxPrecedente();
+    if (evenement.touches.length > 0) return; // encore des doigts posés (fin de pinch) -- pas une fin de geste simple
+    if (!lightboxGlissement) return;
+    lightboxGlissement = false;
+    const delta = evenement.changedTouches[0].clientX - lightboxToucheDepartX;
+    const deltaY = Math.abs(evenement.changedTouches[0].clientY - lightboxToucheDepartY);
+    if (Math.abs(delta) < 8 && deltaY < 8 && lightboxToucheDepartCible && lightboxToucheDepartCible.tagName !== "IMG") {
+      annulerGlissementLightbox();
+      fermerLightbox();
+      return;
+    }
+    const seuil = lightboxTrack.clientWidth / 3 / 5; // ~20% de la largeur d'un volet
+    if (lightboxUrls.length > 1 && Math.abs(delta) > seuil) {
+      deplacerLightbox(delta < 0 ? 1 : -1);
+    } else {
+      annulerGlissementLightbox();
+    }
   });
   ["filtre-discipline", "filtre-distance", "filtre-lieu", "filtre-label"].forEach((id) => {
     document.getElementById(id).addEventListener("change", () => {

@@ -642,8 +642,80 @@ Vérifié partiellement : `img.getAnimations()` confirme que l'animation
 où `transitionrun` ne se déclenchait jamais même en isolant le double
 rAF du reste du code) -- signe que le mécanisme est correctement
 câblé, mais pas une confirmation visuelle sur un vrai appareil comme
-la première tentative n'en avait pas non plus. À reconfirmer par
-l'utilisateur.
+la première tentative n'en avait pas non plus.
+
+**Toujours pas le bon résultat, remplacé pour de bon (2026-08-23,
+même retour utilisateur, précisé)** : le fondu `@keyframes` ne se
+voyait toujours pas sur l'appareil réel -- et surtout, ce que
+l'utilisateur voulait dire par "plus fluide" n'était pas un fondu du
+tout, mais que les photos restent "collées" à l'écran pendant le
+glissement du doigt (effet carrousel, comme Instagram/Google Photos),
+pas un saut abrupt suivi d'un effet visuel après coup. Le fondu était
+donc la mauvaise réponse à la question depuis le début -- remplacé
+par un vrai carrousel à 3 volets, voir section suivante. Les deux
+tentatives de fondu ci-dessus restent documentées pour la leçon
+(transition vs `@keyframes`), pas parce que le principe même du fondu
+était la bonne direction.
+
+## Lightbox : carrousel à 3 volets (2026-08-23, retour utilisateur)
+
+Remplace le fondu ci-dessus. `.lightbox-track` : conteneur flex de 3
+volets (`#lightbox-img-prev`/`-courant`/`-suivant`), largeur 300% de
+l'écran, chaque volet `calc(100%/3)` (donc 100% de l'écran). Position
+neutre `transform: translateX(-33.3333%)` (décale d'exactement un
+volet -- 33.3333% de la largeur de LA PISTE elle-même, pas de
+l'écran ; **piège rencontré en écrivant ceci** : `-100%` semblait
+"logique" par réflexe mais correspond à 100% de la largeur de la
+piste, donc trois écrans entiers -- confondre le référentiel du
+`%` d'un `translateX` avec celui d'une largeur CSS est une erreur
+facile). Volet "suivant" pleinement révélé : `-66.6667%` (un volet de
+plus vers la gauche) ; volet "prev" : `0%` (un volet en arrière).
+`.lightbox-overlay` n'a plus `display: flex` -- un flex centré aurait
+déjà recentré la piste tout seul, en double avec ce `transform`.
+
+Glissement au doigt : `translateX(calc(-33.3333% + ${delta}px))` à
+chaque `touchmove` (un seul jeu d'écouteurs sur `.lightbox-track`,
+suit le doigt 1:1, aucune animation pendant le geste). Au relâché
+(`touchend`) : sous ~20% de la largeur d'un volet
+(`track.clientWidth / 3 / 5`), `annulerGlissementLightbox()` anime le
+retour à `-33.3333%` (petit effet rebond, aucun changement de photo) ;
+au-dessus, `deplacerLightbox(direction)` anime jusqu'à révéler
+entièrement le volet voisin puis, sur `transitionend`,
+`terminerDeplacementLightbox()` bascule `lightboxIndex`, recharge les
+3 volets sur les nouveaux voisins (`majPhotosLightbox()`) et remet la
+piste à `-33.3333%` **sans transition** -- comme le volet "suivant"
+vient d'être rechargé avec la photo qui était déjà visible à l'écran,
+rien ne saute visuellement, juste un changement de coordonnées
+invisible. Les boutons ‹/› appellent la même fonction que le
+glissement (`deplacerLightbox`), pas de logique séparée.
+
+Zoom/pan (pinch, voir plus haut) ne s'applique qu'au volet "courant"
+-- `reinitialiserZoomLightbox()`/`appliquerZoomLightbox()` ciblent
+`#lightbox-img-courant` spécifiquement, plus `#lightbox-img` (qui
+n'existe plus, remplacé par les 3 volets).
+
+Fermeture au tap sur le fond (pas sur une image, mouvement minime,
+détecté dans le même `touchend` que le glissement) -- **le `click`
+sur `#lightbox-overlay` posé pour cet usage ne suffit plus** : la
+piste couvre maintenant tout l'écran ET `touch-action: none`
+supprime le `click` synthétique qui suivrait normalement un tap
+tactile, donc `#lightbox-overlay` ne le reçoit jamais au doigt. Gardé
+en plus pour la souris/desktop (le `click` fonctionne normalement
+hors tactile).
+
+Vérifié réellement (Selenium, `TouchEvent`/`Touch` synthétiques --
+possible ici contrairement au fondu précédent, ce n'est pas un rendu
+visuel mais de la logique d'état) : position neutre correcte
+(`matrix(...,-500,0)` pour un écran de 500px, soit bien -33.3333% de
+1500px), glissement en direct 1:1 avec le doigt, franchissement du
+seuil -> changement d'index + wraparound correct (vérifié par
+comparaison directe avec `lightboxUrls[]`, pas par sous-chaîne dans le
+`src` encodé en base64 -- premier essai de vérification raté pour
+cette raison), retour en place sous le seuil sans changement de
+photo, fermeture au tap sur le fond. Toujours pas de confirmation
+visuelle réelle sur appareil (le rendu visuel du glissement lui-même,
+contrairement à la logique d'état, reste à confirmer par
+l'utilisateur).
 
 **Pan borné aux bords de la photo (même retour utilisateur)** :
 `appliquerZoomLightbox()` borne désormais `lightboxPanX`/`lightboxPanY`
