@@ -7,6 +7,15 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f1216">
+<!-- Safari ne lit pas manifest.json pour "Ajouter à l'écran d'accueil"
+     (issue #18) -- sans ces balises, icône = capture d'écran de la
+     page, et l'appli se rouvre dans Safari plutôt qu'en standalone.
+     black-translucent cohérent avec le thème sombre et les
+     env(safe-area-inset-*) déjà utilisés partout dans le CSS. -->
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FletchLog">
 <link rel="stylesheet" href="theme.css">
 <style>
   /* Page d'accueil (issue #8) -- construite sur theme.css, comme

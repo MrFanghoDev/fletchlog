@@ -935,3 +935,19 @@ z-index plus élevé) cachait complètement le bouton "+" pendant qu'il
 (88px + 56px de hauteur = 144px) plus une marge, `bottom: 154px`.
 Repéré uniquement grâce à la capture d'écran réelle, pas visible en
 lisant juste le CSS.
+
+**Balises iOS ajoutées (2026-08-23)** -- `manifest.json` n'est pas lu
+par Safari pour "Ajouter à l'écran d'accueil" : sans balises dédiées,
+icône = capture d'écran de la page, ouverture dans Safari plutôt qu'en
+standalone. Ajouté sur les trois pages (`apple-touch-icon` vers
+`icon-192.png`, `apple-mobile-web-app-capable`,
+`apple-mobile-web-app-status-bar-style: black-translucent` -- cohérent
+avec le thème sombre et les `env(safe-area-inset-*)` déjà utilisés
+partout, `apple-mobile-web-app-title`). Vérifié réellement que les
+balises sont bien présentes/valides (Selenium, les trois pages) --
+**pas vérifié sur un vrai Safari/iOS**, aucun appareil ni simulateur
+disponible dans cet environnement. Le vrai support iOS (#18) reste
+très en amont : ces balises seules ne suffisent pas, tout le reste
+(comportement de `capture="environment"` sur Safari, fiabilité réelle
+du stockage sur plusieurs jours, rendu Leaflet...) doit être vérifié à
+la main sur un iPhone.
