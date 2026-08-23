@@ -338,6 +338,29 @@
   .nav-btn.active span { font-weight: 600; }
 
   .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 8px 14px; border-radius: 999px; white-space: nowrap; box-shadow: 0 6px 16px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.2s ease; z-index: 25; }
+
+  /* Rappel d'export périodique (issue #18) -- filet de sécurité tant
+     que le stockage PWA n'est pas garanti fiable indéfiniment (surtout
+     pertinent sur Safari/iOS, voir CLAUDE.md). "Plus tard" masque pour
+     la session en cours seulement (sessionStorage) -- réapparaît au
+     prochain lancement tant qu'aucun export n'a été fait entre-temps. */
+  .rappel-export {
+    /* bottom: 154px -- au-dessus du FAB (bottom:88px, hauteur 56px,
+       donc son bord haut est à 144px), pas juste son propre décalage
+       (le "+" se retrouvait caché sous la bannière sinon, constaté
+       visuellement). */
+    position: fixed; left: 12px; right: 12px; bottom: calc(154px + env(safe-area-inset-bottom, 0px));
+    max-width: 420px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+    font-size: 13px; color: var(--text); box-shadow: 0 6px 16px rgba(0,0,0,0.3); z-index: 16;
+  }
+  .rappel-export[hidden] { display: none; }
+  .rappel-export-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .rappel-export-actions button, .rappel-export-actions a {
+    font: inherit; font-weight: 600; padding: 5px 12px; border-radius: 8px; border: none;
+    cursor: pointer; text-decoration: none;
+  }
+  #rappel-export-plus-tard { background: none; color: var(--text-muted); padding: 5px 6px; }
   .toast.visible { opacity: 1; }
 </style>
 </head>
@@ -422,6 +445,14 @@
   </button>
 
   <div class="toast" id="toast" hidden></div>
+
+  <div class="rappel-export" id="rappel-export" hidden>
+    <span data-i18n="rappelExportTexte">Ça fait un moment que tu n'as pas exporté ton carnet -- pense à sauvegarder tes sorties et tes photos.</span>
+    <div class="rappel-export-actions">
+      <button type="button" id="rappel-export-plus-tard" data-i18n="rappelExportPlusTard">Plus tard</button>
+      <a class="btn-primary" href="aide.html#s3" data-i18n="rappelExportAction">Exporter</a>
+    </div>
+  </div>
 
   <div class="detail-overlay" id="detail-overlay" hidden>
     <div class="detail-header">

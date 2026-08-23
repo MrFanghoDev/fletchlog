@@ -12,6 +12,19 @@
  * (recharger) plutôt qu'un reload forcé, voir le ticket : couperait
  * une saisie en cours dans le formulaire d'ajout.
  */
+
+// Demande de stockage persistant (issue #18) -- réduit le risque
+// d'éviction du stockage (IndexedDB, photos) par le navigateur en cas
+// de pression mémoire ou de longue période sans usage, surtout
+// pertinent sur Safari/iOS. Accordé selon des heuristiques propres à
+// chaque navigateur (WebKit favorise notamment les apps ajoutées à
+// l'écran d'accueil, voir CLAUDE.md) -- pas une garantie, un
+// atténuateur de risque, jamais un pré-requis bloquant si absent
+// (navigator.storage n'existe même pas sur tous les navigateurs).
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register("sw.js")

@@ -865,3 +865,73 @@ auparavant (même leçon que fletchtime/fletchscore, voir leur
 `docs.yml`) -- un `workflow_dispatch` manuel (ou un nouveau push de
 tag) est nécessaire juste après la bascule pour que le site ne reste
 pas figé sur le dernier contenu servi par le mécanisme legacy.
+
+**Vérifié réellement, deux vrais accrocs rencontrés en bascule à chaud
+(2026-08-23)**, tous deux distincts du contenu du ticket lui-même :
+
+1. Le tag `v0.5.0` déclenchait le workflow mais échouait avec "Tag
+   v0.5.0 is not allowed to deploy to github-pages due to environment
+   protection rules" -- l'environnement `github-pages` de FletchLog
+   n'avait que des règles de branche (`master`, `gh-pages`), pas de
+   règle de tag, contrairement à fletchtime qui a une règle `type:
+   tag, name: "v*.*.*"` en plus. Corrigé en ajoutant la même règle via
+   `gh api repos/.../environments/github-pages/deployment-branch-policies
+   -X POST -f name='v*.*.*' -f type=tag`.
+2. **Le piège de dédup par SHA (documenté en théorie dans `docs.yml`
+   des dépôts frères) s'est produit pour de vrai, pas juste en
+   théorie** : un `workflow_dispatch` de diagnostic lancé sur `master`
+   (même commit que le tag `v0.5.0`, aucune nouvelle release entre les
+   deux) a "consommé" ce SHA aux yeux de GitHub Pages -- le
+   redéploiement suivant du tag (même SHA) réussissait côté Actions
+   mais ne republiait rien, le site restait sur le contenu du
+   `workflow_dispatch` de test. Confirmé via l'en-tête `Last-Modified`
+   de la réponse (pas juste `Age`/`Cache-Control`, qui ne prouvent que
+   l'état du cache CDN, pas celui de l'origine) : il correspondait
+   exactement à l'heure du `workflow_dispatch` de test, jamais à celle
+   du redéploiement du tag. **Leçon pour la suite** : ne jamais
+   dispatcher manuellement ce workflow sur `master` pour "tester" --
+   utiliser un vrai nouveau tag (même mineur) si un déploiement doit
+   être vérifié, sous peine de piéger le SHA suivant.
+
+## Rappel d'export + stockage persistant (issue #18, 2026-08-23)
+
+Deux questions du ticket tranchées avant de coder quoi que ce soit :
+
+1. **Le risque de stockage Safari s'est-il amélioré ?** Recherché pour
+   de vrai (pas supposé) : le risque reste réel (éviction possible sous
+   pression de stockage ou longue inactivité, base LRU par origine) --
+   voir le [billet WebKit officiel](https://webkit.org/blog/14403/updates-to-storage-policy/),
+   qui ne mentionne d'ailleurs aucune règle fixe "7 jours" (contrairement
+   à des sources tierces qui la citent encore) -- mais `navigator.storage.persist()`
+   peut exclure une origine de l'éviction, et WebKit favorise
+   explicitement les Home Screen Web Apps dans ses heuristiques
+   d'attribution. Conclusion : risque réel mais atténuable, pas un
+   couperet binaire.
+2. **Rappels d'export en compensation ?** Oui, décidé avec
+   l'utilisateur -- bandeau périodique dans l'appli, même esprit que
+   la bannière de mise à jour (issue #10) existante.
+
+**Mise en œuvre (bénéficie à Android aussi, pas iOS-only)** :
+- `navigator.storage.persist()` demandé une fois par page (`sw-register.js`,
+  partagé par les 3 pages) -- jamais bloquant si absent/refusé, un
+  atténuateur de risque, pas un pré-requis.
+- `#rappel-export` (`app.html`/`app.js`) : bandeau si au moins une
+  entrée existe ET (jamais exporté OU dernier export > 30 jours,
+  `RAPPEL_EXPORT_JOURS`). "Plus tard" masque pour la session en cours
+  seulement (`sessionStorage`) -- réapparaît au prochain lancement tant
+  qu'aucun export n'a eu lieu entre-temps. Bouton "Exporter" renvoie
+  vers `aide.html#s3` (ancre déjà existante).
+- `localStorage.fletchlog_dernier_export` écrit dans
+  `livrerExport()` (`export-import.js`) -- après partage natif Android
+  ET après le repli téléchargement classique (un partage annulé
+  retombe sur le téléchargement dans le code existant, donc un fichier
+  est produit dans tous les cas où cette fonction se termine).
+
+**Piège de positionnement CSS repéré visuellement** : `.rappel-export`
+copiait le même `bottom` que `.fab` (`88px`) en pensant "au-dessus du
+FAB" -- en réalité ça les alignait au même niveau, le bandeau (au
+z-index plus élevé) cachait complètement le bouton "+" pendant qu'il
+était affiché. Corrigé en calculant le vrai bord haut du FAB
+(88px + 56px de hauteur = 144px) plus une marge, `bottom: 154px`.
+Repéré uniquement grâce à la capture d'écran réelle, pas visible en
+lisant juste le CSS.

@@ -47,6 +47,15 @@ function _telechargerBlob(blob, nomFichier) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Date du dernier export réussi (issue #18 -- rappel périodique tant
+// que le stockage PWA n'est pas garanti fiable indéfiniment, surtout
+// pertinent sur Safari/iOS, voir CLAUDE.md). Un partage natif annulé
+// retombe sur _telechargerBlob() (voir plus bas) donc marque quand
+// même -- un fichier a été produit dans les deux cas.
+function _marquerExportReussi() {
+  localStorage.setItem("fletchlog_dernier_export", new Date().toISOString());
+}
+
 function livrerExport(blob) {
   const nomFichier = _nomFichierExport();
   // Partage natif Android si possible (voir CLAUDE.md) -- repli sur un
@@ -55,12 +64,16 @@ function livrerExport(blob) {
   if (window.File && navigator.canShare) {
     const fichier = new File([blob], nomFichier, { type: "application/zip" });
     if (navigator.canShare({ files: [fichier] })) {
-      return navigator.share({ files: [fichier], title: nomFichier }).catch(() => {
-        _telechargerBlob(blob, nomFichier);
-      });
+      return navigator
+        .share({ files: [fichier], title: nomFichier })
+        .catch(() => {
+          _telechargerBlob(blob, nomFichier);
+        })
+        .then(_marquerExportReussi);
     }
   }
   _telechargerBlob(blob, nomFichier);
+  _marquerExportReussi();
   return Promise.resolve();
 }
 

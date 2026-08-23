@@ -106,6 +106,20 @@ function afficherToast(message) {
   }, 2200);
 }
 
+// Rappel d'export périodique (issue #18) -- voir le commentaire CSS de
+// .rappel-export dans app.html pour le pourquoi. Rien à perdre tant
+// qu'aucune entrée n'existe, pas de rappel dans ce cas.
+const RAPPEL_EXPORT_JOURS = 30;
+
+function verifierRappelExport() {
+  if (entreesActuelles.length === 0) return;
+  if (sessionStorage.getItem("fletchlog_rappel_export_masque")) return;
+  const dernier = localStorage.getItem("fletchlog_dernier_export");
+  const joursDepuis = dernier ? (Date.now() - new Date(dernier).getTime()) / 86400000 : Infinity;
+  if (joursDepuis < RAPPEL_EXPORT_JOURS) return;
+  document.getElementById("rappel-export").hidden = false;
+}
+
 // ---- Vue Liste : filtres + cartes ---------------------------------
 
 function valeursDistinctes(champ) {
@@ -1017,6 +1031,10 @@ function supprimerDepuisDetail() {
 
 function initFormulaire() {
   document.getElementById("fab-add").addEventListener("click", () => ouvrirFormulaire(null));
+  document.getElementById("rappel-export-plus-tard").addEventListener("click", () => {
+    sessionStorage.setItem("fletchlog_rappel_export_masque", "1");
+    document.getElementById("rappel-export").hidden = true;
+  });
   document.getElementById("detail-fermer").addEventListener("click", fermerDetail);
   document.getElementById("detail-supprimer").addEventListener("click", supprimerDepuisDetail);
   document.getElementById("detail-modifier").addEventListener("click", () => {
@@ -1166,4 +1184,4 @@ function initFormulaire() {
 applyTranslations();
 initNavigation();
 initFormulaire();
-chargerEntrees();
+chargerEntrees().then(verifierRappelExport);
