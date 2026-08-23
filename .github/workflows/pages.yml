@@ -1,0 +1,69 @@
+name: Publier sur GitHub Pages
+
+# Contrairement à fletchtime/fletchscore (un vrai build Sphinx à lancer
+# tôt sur chaque push, la publication elle-même restant séparée et
+# gated sur un tag -- voir leur .github/workflows/docs.yml), FletchLog
+# n'a AUCUNE étape de build : tout le dépôt EST le site public (l'appli
+# PWA elle-même). Un simple checkout + upload-pages-artifact +
+# deploy-pages suffit donc, un seul job -- avec une étape en plus pour
+# réécrire le numéro de version affiché (version.js) depuis le nom du
+# tag, sur l'artefact déployé seulement (jamais commité en retour, voir
+# version.js et CLAUDE.md section "Versions").
+#
+# Déclenché UNIQUEMENT par un tag de release (ou un lancement manuel) --
+# jamais sur un simple push de branche, pour découpler le développement
+# courant de ce qui est réellement livré aux utilisateurs (issue #21).
+# Avant ce workflow, source Pages "Deploy from a branch" (legacy) :
+# chaque push vers master partait en ligne immédiatement.
+#
+# Configuration ponctuelle nécessaire (une seule fois, sur GitHub, à la
+# main) : Settings -> Pages -> Source: "GitHub Actions" (au lieu de
+# "Deploy from a branch"). Tant que ce changement n'est pas fait, ce
+# workflow peut tourner (et réussir) sans que ça ne change rien au site
+# publié -- la source legacy reste active en parallèle jusqu'à la
+# bascule manuelle.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  # true -- même raisonnement que fletchtime/fletchscore : un
+  # lancement manuel suivi de près par un push de tag (ou l'inverse) ne
+  # doit jamais laisser le run le plus ancien terminer après le plus
+  # récent et écraser son résultat. Ici le risque est plus faible (un
+  # seul déclencheur, pas de build+deploy séparés), gardé par cohérence
+  # et parce que ça ne coûte rien.
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mettre à jour le numéro de version affiché (depuis le tag)
+        # Seulement sur un vrai tag -- github.ref_name vaut le nom de la
+        # branche (ex. "master") pour un workflow_dispatch manuel, pas
+        # une version, écraserait version.js avec n'importe quoi.
+        # Ne modifie que l'artefact déployé, jamais commité en retour --
+        # voir version.js pour l'explication complète.
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: sed -i "s/const FLETCHLOG_VERSION = \".*\";/const FLETCHLOG_VERSION = \"${{ github.ref_name }}\";/" version.js
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

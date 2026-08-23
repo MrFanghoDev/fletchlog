@@ -203,27 +203,42 @@ pas la reperdre :
   Node qui testerait une simulation. Plus proche de l'esprit
   "vérification réelle" du projet qu'un test unitaire isolé.
 
-## Versions (décidé 2026-08-19)
+## Versions (décidé 2026-08-19, révisé 2026-08-23 -- issue #21)
 
 Pas de mécanisme comme `setuptools_scm` côté FletchScore/FletchTime
-(dérivation de version depuis les tags git, affichée dans un footer) --
-inapplicable ici, aucun backend Python, aucun paquet à publier. Avant
-cette date, aucune gestion de version du tout : ni tag git, ni Release
-GitHub, ni champ `version` dans `manifest.json` -- seul existait
-`CACHE_NAME` dans `sw.js`, un simple compteur de cache-busting interne
-(incrémenté à chaque ticket qui modifie un fichier déjà précaché, voir
-plus haut), sans rapport avec un numéro de version affiché ou suivi.
+(dérivation de version depuis les tags git à la CONSTRUCTION d'un
+paquet Python) -- toujours inapplicable ici au sens strict, aucun
+paquet à publier. Avant le 2026-08-19, aucune gestion de version du
+tout : ni tag git, ni Release GitHub, ni champ `version` dans
+`manifest.json` -- seul existait `CACHE_NAME` dans `sw.js`, un simple
+compteur de cache-busting interne (incrémenté à chaque ticket qui
+modifie un fichier déjà précaché, voir plus haut), sans rapport avec
+un numéro de version affiché ou suivi.
 
-Décision : **tags git + Release GitHub aux jalons**, posés à la main
-(pas de CI/build à déclencher comme chez les deux autres projets --
-purement déclaratif, juste un repère dans l'historique).
+Décision initiale (2026-08-19) : **tags git + Release GitHub aux
+jalons**, posés à la main -- toujours vrai, inchangé.
 
-**Numéro affiché dans le footer** (issue #20, décidé dans la foulée) :
-`version.js` -- une seule constante `FLETCHLOG_VERSION`, maintenue à
-la main, à mettre à jour à chaque tag posé (pas de dérivation
-automatique possible sans build). Affiché dans le footer d'`index.html`
-et `aide.html` (les deux pages qui ont déjà un footer) -- pas dans
+**Numéro affiché dans le footer** (issue #20, décidé dans la foulée,
+révisé le 2026-08-23) : `version.js`, une seule constante
+`FLETCHLOG_VERSION`. Affiché dans le footer d'`index.html` et
+`aide.html` (les deux pages qui ont déjà un footer) -- pas dans
 `app.html`, qui n'en a pas.
+
+**Depuis #21 (déploiement par tag, voir plus bas), la mise à jour n'est
+plus manuelle** : `.github/workflows/pages.yml` réécrit
+`FLETCHLOG_VERSION` avec le nom exact du tag (`github.ref_name`, ex.
+"v0.4.0") au moment du déploiement -- un simple `sed` sur l'artefact
+publié, JAMAIS commité en retour dans le dépôt (pas de commit-bot comme
+chez fletchtime/fletchscore pour le formatage automatique, aucun
+équivalent nécessaire ici). Ne s'exécute que sur un vrai push de tag
+(`if: startsWith(github.ref, 'refs/tags/v')`) -- un `workflow_dispatch`
+manuel garde `version.js` tel quel, `github.ref_name` y vaudrait un nom
+de branche, pas une version. Conséquence : la valeur committée dans le
+dépôt (`"dev"`) n'est **jamais** ce qui s'affiche réellement en
+production -- seulement ce qu'un checkout local (sans repasser par le
+workflow) montrerait. Sans build local, un test manuel du footer avant
+de taguer doit donc éditer `version.js` à la main temporairement (pas
+committé), ou accepter de voir "dev" jusqu'au prochain vrai tag.
 
 ## Export/import (issue #5, décidé)
 
@@ -815,3 +830,38 @@ Vérifié réellement (Selenium) : les deux boutons s'affichent côte à
 côte, le second input n'a bien aucun attribut `capture`, et chaque
 bouton déclenche bien le `click()` du bon input caché (vérifié par
 substitution de `click()`, pas juste supposé depuis le HTML).
+
+## Publication GitHub Pages uniquement sur release (issue #21, 2026-08-23)
+
+Avant : source Pages "Deploy from a branch" (legacy, `build_type:
+legacy`) -- chaque push vers `master` partait en ligne immédiatement,
+sans découplage entre développement courant et ce qui est réellement
+livré aux utilisateurs (contrairement à fletchtime/fletchscore, qui
+avaient déjà ce découplage pour leur doc Sphinx).
+
+Nouveau `.github/workflows/pages.yml`, calqué sur
+`fletchtime/.github/workflows/docs.yml` mais réduit à l'essentiel :
+FletchLog n'a AUCUNE étape de build (tout le dépôt EST le site public,
+l'appli PWA elle-même), donc un seul job `checkout` ->
+`upload-pages-artifact` (`path: .`) -> `deploy-pages`, déclenché
+uniquement par `push: tags: ["v*.*.*"]` ou `workflow_dispatch` --
+jamais sur un push de branche. `concurrency: group: "pages",
+cancel-in-progress: true` gardé par cohérence avec les dépôts frères,
+même si le risque de course qu'il évite chez eux (build+deploy en deux
+jobs séparés, déclenchés par des événements différents) ne s'applique
+pas vraiment ici avec un seul job/déclencheur.
+
+**Bascule Settings -> Pages -> Source: "GitHub Actions" volontairement
+PAS faite par Claude** (changement d'infra publique, jamais en aveugle
+-- voir le ticket) -- à faire par l'utilisateur, ou par Claude après
+confirmation explicite le moment venu. Tant que ce changement n'est
+pas fait, ce workflow peut tourner (et réussir) sans rien changer au
+site réellement publié -- la source legacy reste active en parallèle
+jusqu'à la bascule manuelle.
+
+**Premier déploiement après la bascule** : GitHub Pages ignore
+silencieusement un déploiement pour un SHA de commit déjà déployé
+auparavant (même leçon que fletchtime/fletchscore, voir leur
+`docs.yml`) -- un `workflow_dispatch` manuel (ou un nouveau push de
+tag) est nécessaire juste après la bascule pour que le site ne reste
+pas figé sur le dernier contenu servi par le mécanisme legacy.
