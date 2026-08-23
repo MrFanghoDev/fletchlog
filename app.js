@@ -20,6 +20,10 @@ const ICONE_PIN =
   '<svg width="13" height="13" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg>';
 const ICONE_CHEVRON =
   '<svg class="carte-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>';
+// Bouton "choisir depuis la galerie" (issue #23) -- stroke="currentColor"
+// pour hériter la couleur du bouton (.photo-ajouter, même gris que le "+").
+const ICONE_GALERIE =
+  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5-9 9"/></svg>';
 const ICONE_PLACEHOLDER_PHOTO =
   '<svg width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="#0f1216" stroke-width="1.7"/><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="#0f1216" stroke-width="1.7"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><g transform="translate(12,10.94) scale(0.268) translate(-44.843,-39.079)"><path stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#0f1216" d="M 62.853 39.187 L 34.723 39.187 L 25.508 29.226 L 51.190 29.365 L 56.032 39.187 L 51.190 49.009 L 25.508 49.148 L 34.723 39.187 M 39.680 29.831 L 46.066 39.187 L 39.680 48.543" style="transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0, 1, -1, 0, 0.662491, -0.108498)"/><path stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="var(--text-faint)" d="M 62.853 39.187 L 34.723 39.187 L 25.508 29.226 L 51.190 29.365 L 56.032 39.187 L 51.190 49.009 L 25.508 49.148 L 34.723 39.187 M 39.680 29.831 L 46.066 39.187 L 39.680 48.543" style="transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0, 1, -1, 0, 0.662491, -0.108498)"/></g><circle cx="12" cy="15.94" r="0.5625" fill="var(--text-faint)"/></svg>';
 
@@ -526,11 +530,14 @@ function rendrePhotosGalerie() {
       `;
     })
     .join("");
-  const boutonAjouter =
+  // Deux boutons distincts (issue #23) -- voir le commentaire sur les
+  // deux <input type="file"> dans app.html pour le pourquoi.
+  const boutonsAjouter =
     photosFormulaire.length < MAX_PHOTOS
-      ? `<button type="button" class="photo-ajouter" id="photo-ajouter" data-i18n-aria-label="formPhotoChoisir" aria-label="${t(currentLanguage, "formPhotoChoisir")}">+</button>`
+      ? `<button type="button" class="photo-ajouter" id="photo-ajouter" data-i18n-aria-label="formPhotoAppareil" aria-label="${t(currentLanguage, "formPhotoAppareil")}">+</button>
+         <button type="button" class="photo-ajouter" id="photo-ajouter-galerie" data-i18n-aria-label="formPhotoGalerie" aria-label="${t(currentLanguage, "formPhotoGalerie")}">${ICONE_GALERIE}</button>`
       : "";
-  galerie.innerHTML = vignettes + boutonAjouter;
+  galerie.innerHTML = vignettes + boutonsAjouter;
 }
 
 function ajouterPhotoFormulaire(fichier) {
@@ -870,6 +877,7 @@ function ouvrirFormulaire(id) {
   revoquerApercusFormulaire();
   photosFormulaire = entree ? (entree.photoIds || []).map((photoId) => ({ photoId })) : [];
   document.getElementById("champ-photo").value = "";
+  document.getElementById("champ-photo-galerie").value = "";
   rendrePhotosGalerie();
 
   if (entree) {
@@ -1032,7 +1040,12 @@ function initFormulaire() {
     evenement.target.value = ""; // permet de resélectionner le même fichier ensuite
     if (fichier) ajouterPhotoFormulaire(fichier);
   });
-  // Délégation -- les vignettes/le bouton "+" sont recréés à chaque
+  document.getElementById("champ-photo-galerie").addEventListener("change", (evenement) => {
+    const fichier = evenement.target.files[0];
+    evenement.target.value = "";
+    if (fichier) ajouterPhotoFormulaire(fichier);
+  });
+  // Délégation -- les vignettes/boutons "+" sont recréés à chaque
   // rendrePhotosGalerie(), pas de listener à reposer individuellement.
   document.getElementById("photo-galerie").addEventListener("click", (evenement) => {
     const boutonRetirer = evenement.target.closest(".photo-vignette-retirer");
@@ -1042,6 +1055,10 @@ function initFormulaire() {
     }
     if (evenement.target.closest("#photo-ajouter")) {
       document.getElementById("champ-photo").click();
+      return;
+    }
+    if (evenement.target.closest("#photo-ajouter-galerie")) {
+      document.getElementById("champ-photo-galerie").click();
       return;
     }
     const vignette = evenement.target.closest(".photo-vignette-form");

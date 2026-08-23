@@ -774,3 +774,44 @@ le lieu si pas de titre, `formaterDate()`, galerie masquée si aucune
 photo, "Pas de position enregistrée" si aucune position), tap photo ->
 lightbox, tap "Modifier" -> formulaire pré-rempli avec le bon id,
 confirmation de suppression affichée et annulation sans effet.
+
+Retour à l'écran de détail après enregistrement (même retour
+utilisateur, complément) : `idEnEdition` capturé juste avant
+`fermerFormulaire()` (qui le remet à `null`) -- s'il y en avait un
+(édition d'une sortie existante, pas un ajout), `afficherDetail()` est
+rappelé après `chargerEntrees()` pour montrer la version à jour.
+Vérifié réellement (vraie sauvegarde IndexedDB, pas seulement l'état
+en mémoire) : ajout ferme comme avant, édition retourne bien au
+détail avec la valeur modifiée visible.
+
+## Import de photos depuis la galerie (issue #23, 2026-08-23)
+
+Décision tranchée par une vraie recherche (pas supposée) avant de
+scoper -- l'input `capture="environment"` force bien l'appareil photo
+sans jamais proposer la galerie, sur toutes les versions Android
+(confirmé). Mais retirer `capture` d'un seul input ne suffit pas comme
+solution : sur Android 14/15, Chrome ne propose alors QUE la
+galerie/les fichiers, **plus aucun raccourci vers l'appareil photo**
+-- régression documentée (Chrome/Edge seulement, Firefox garde
+l'ancien comportement), qui aurait cassé le cas d'usage principal
+(photographier sur le pas de tir) pour une partie des utilisateurs
+selon leur version d'Android. Sources : [blog.addpipe.com -- Android
+14 & 15 File Inputs](https://blog.addpipe.com/html-file-input-accept-video-camera-option-is-missing-android-14-15/),
+confirmé par une recherche web indépendante.
+
+Résolu avec **deux `<input type="file">` distincts** (troisième piste
+du ticket, celle qui garde le raccourci direct ET ajoute la galerie) :
+`#champ-photo` (inchangé, `capture="environment"`, bouton "+") et
+`#champ-photo-galerie` (nouveau, sans `capture`, bouton icône image
+`ICONE_GALERIE`) -- deux boutons côte à côte dans `.photo-galerie`
+plutôt qu'un menu contextuel, plus simple à câbler (délégation déjà en
+place, juste un second `id` à reconnaître) et pas de nouveau
+composant de superposition à construire. Clé i18n `formPhotoChoisir`
+renommée `formPhotoAppareil` ("Prendre une photo") pour refléter
+qu'elle ne désigne plus qu'un des deux boutons, nouvelle clé
+`formPhotoGalerie` ("Choisir depuis la galerie").
+
+Vérifié réellement (Selenium) : les deux boutons s'affichent côte à
+côte, le second input n'a bien aucun attribut `capture`, et chaque
+bouton déclenche bien le `click()` du bon input caché (vérifié par
+substitution de `click()`, pas juste supposé depuis le HTML).

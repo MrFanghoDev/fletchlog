@@ -499,7 +499,17 @@
         <div class="field">
           <label data-i18n="formPhotoLabel">Photos</label>
           <div class="photo-galerie" id="photo-galerie"></div>
+          <!-- Deux inputs distincts (issue #23) -- capture="environment"
+               force l'appareil photo (fiable sur toutes les versions
+               Android testées), un input sans capture ouvre le
+               sélecteur de fichiers/galerie natif. Un seul input sans
+               capture ne suffit pas : sur Android 14/15, Chrome ne
+               propose alors QUE la galerie, plus aucun raccourci vers
+               l'appareil photo (vérifié réellement, voir CLAUDE.md) --
+               fusionner les deux perdrait le cas d'usage principal
+               (photographier sur le pas de tir). -->
           <input type="file" accept="image/*" capture="environment" id="champ-photo" hidden>
+          <input type="file" accept="image/*" id="champ-photo-galerie" hidden>
         </div>
         <p class="form-erreur" id="form-erreur" data-i18n="formLieuRequis" hidden>Le lieu est obligatoire.</p>
         <div class="form-actions">
