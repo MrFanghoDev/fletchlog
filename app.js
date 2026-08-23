@@ -566,34 +566,25 @@ function fermerLightbox() {
 
 // animer: fondu enchaîné entre deux photos (navigation prev/next) --
 // pas à l'ouverture initiale, où il n'y a rien à faire fondre depuis.
-// Les photos sont déjà en mémoire (blob URL/data URI, pas de réseau) :
-// le chargement peut se terminer sur le même tick que le changement de
-// src, avant toute peinture -- opacity passerait de 0 à 1 sans qu'un
-// seul frame ne soit jamais affiché à 0, donc sans fondu visible. Le
-// double requestAnimationFrame force un frame peint entre les deux.
+// Classe .lightbox-anim (@keyframes, voir app.html) plutôt qu'une
+// transition sur opacity -- une transition dépend de l'ordre exact des
+// peintures avant/après le changement de src (constaté cassé sur un
+// vrai appareil malgré un double requestAnimationFrame, voir
+// CLAUDE.md), une animation @keyframes rejoue toujours sa timeline
+// complète dès qu'elle démarre.
 function afficherPhotoLightbox(animer) {
   reinitialiserZoomLightbox();
   const img = document.getElementById("lightbox-img");
-  const majCompteurEtNav = () => {
-    const plusieurs = lightboxUrls.length > 1;
-    document.getElementById("lightbox-compteur").textContent = plusieurs ? `${lightboxIndex + 1} / ${lightboxUrls.length}` : "";
-    document.getElementById("lightbox-prev").hidden = !plusieurs;
-    document.getElementById("lightbox-next").hidden = !plusieurs;
-  };
-  if (!animer) {
-    img.style.opacity = "1";
-    img.src = lightboxUrls[lightboxIndex];
-    majCompteurEtNav();
-    return;
+  img.src = lightboxUrls[lightboxIndex];
+  img.classList.remove("lightbox-anim");
+  if (animer) {
+    void img.offsetWidth; // force un reflow pour pouvoir rejouer l'animation
+    img.classList.add("lightbox-anim");
   }
-  img.style.opacity = "0";
-  requestAnimationFrame(() => {
-    img.src = lightboxUrls[lightboxIndex];
-    requestAnimationFrame(() => {
-      img.style.opacity = "1";
-    });
-  });
-  majCompteurEtNav();
+  const plusieurs = lightboxUrls.length > 1;
+  document.getElementById("lightbox-compteur").textContent = plusieurs ? `${lightboxIndex + 1} / ${lightboxUrls.length}` : "";
+  document.getElementById("lightbox-prev").hidden = !plusieurs;
+  document.getElementById("lightbox-next").hidden = !plusieurs;
 }
 
 function lightboxPrecedente() {
@@ -623,8 +614,21 @@ function reinitialiserZoomLightbox() {
   document.getElementById("lightbox-img").style.transform = "";
 }
 
+// Borne le pan pour ne jamais laisser un bord de la photo (zoomée)
+// rentrer depuis l'intérieur de l'écran -- au pire, ses bords touchent
+// ceux de l'écran, jamais plus. img.offsetWidth/offsetHeight (taille
+// de mise en page, "contain" à zoom 1) ne bougent pas avec transform :
+// scale(), donc x lightboxZoom donne la taille réellement affichée.
 function appliquerZoomLightbox() {
-  document.getElementById("lightbox-img").style.transform = `translate(${lightboxPanX}px, ${lightboxPanY}px) scale(${lightboxZoom})`;
+  const img = document.getElementById("lightbox-img");
+  const overlay = document.getElementById("lightbox-overlay");
+  const largeurAffichee = img.offsetWidth * lightboxZoom;
+  const hauteurAffichee = img.offsetHeight * lightboxZoom;
+  const maxPanX = Math.max(0, (largeurAffichee - overlay.clientWidth) / 2);
+  const maxPanY = Math.max(0, (hauteurAffichee - overlay.clientHeight) / 2);
+  lightboxPanX = Math.min(maxPanX, Math.max(-maxPanX, lightboxPanX));
+  lightboxPanY = Math.min(maxPanY, Math.max(-maxPanY, lightboxPanY));
+  img.style.transform = `translate(${lightboxPanX}px, ${lightboxPanY}px) scale(${lightboxZoom})`;
 }
 
 function distanceTactile(touches) {

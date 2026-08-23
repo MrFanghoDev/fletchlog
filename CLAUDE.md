@@ -614,27 +614,46 @@ opaque là où il devrait être transparent.
 
 ## Lightbox : fondu entre photos (2026-08-22/23, retour utilisateur)
 
-`transition: opacity 0.15s ease` sur `.lightbox-img` (pas `transform`,
-qui doit rester instantané pour le pinch-zoom/pan en direct -- voir
-plus haut). `afficherPhotoLightbox(animer)` : pas de fondu à
-l'ouverture initiale (`animer=false`, rien à faire fondre depuis),
-fondu à la navigation prev/next/swipe (`animer=true`).
+Première tentative -- `transition: opacity 0.15s ease` sur
+`.lightbox-img`, changement de `src` via un double
+`requestAnimationFrame` pour garantir un frame à opacity:0 réellement
+peint avant de remonter à 1 (technique standard documentée pour ce
+genre de crossfade). **Constaté cassé sur un vrai appareil** (retour
+utilisateur : "les photos passent de l'une à l'autre abruptement")
+malgré le rAF -- l'hypothèse initiale ("limite du rendu headless de
+cet environnement, pas un vrai bug") était donc fausse, corrigée ici
+plutôt que laissée traîner.
 
-Piège : les photos sont déjà en mémoire (blob URL/data URI, jamais de
-réseau), donc `img.onload` peut se déclencher sur le même tick que le
-changement de `src`, avant toute peinture -- `opacity` passerait alors
-de 0 à 1 sans qu'un seul frame ne soit jamais affiché à 0, donc sans
-fondu visible (juste un flash). Corrigé avec un double
-`requestAnimationFrame` (change `src` au premier frame peint, remonte
-l'opacité au frame suivant) -- technique standard pour ce genre de
-crossfade, garantit qu'un frame à opacity:0 est réellement peint entre
-les deux.
+**Corrigé avec `@keyframes` + classe** plutôt qu'une transition
+JS-timée : `@keyframes lightbox-fondu { from{opacity:0} to{opacity:1}
+}`, classe `.lightbox-anim` retirée puis reposée (avec un
+`void img.offsetWidth` entre les deux pour forcer un reflow et
+pouvoir rejouer l'animation) à chaque navigation prev/next/swipe --
+pas à l'ouverture initiale. Une animation `@keyframes` rejoue toujours
+sa timeline complète dès qu'elle démarre, sans dépendre d'un état
+"avant" déjà peint comme une transition -- plus robuste pour ce genre
+de changement de `src` en une seule opération JS. Toujours pas de
+transition/animation sur `transform` (pinch-zoom/pan l'écrivent en
+direct à chaque `touchmove`, une transition dessus traînerait derrière
+le doigt).
 
-**Non vérifié réellement** : Selenium/Chromium headless dans cet
-environnement (`--disable-gpu`, pas de vrai compositeur d'affichage)
-ne déclenche jamais l'événement `transitionrun` sur `opacity` ici, y
-compris sur un double rAF minimal isolé du reste du code -- semble
-être une limite de rendu headless plutôt qu'un bug réel (le motif est
-un pattern web standard et documenté). Je n'ai pas pu confirmer
-visuellement le fondu depuis cet environnement -- à vérifier sur un
-vrai appareil.
+Vérifié partiellement : `img.getAnimations()` confirme que l'animation
+`lightbox-fondu` démarre bien (contrairement à la version précédente,
+où `transitionrun` ne se déclenchait jamais même en isolant le double
+rAF du reste du code) -- signe que le mécanisme est correctement
+câblé, mais pas une confirmation visuelle sur un vrai appareil comme
+la première tentative n'en avait pas non plus. À reconfirmer par
+l'utilisateur.
+
+**Pan borné aux bords de la photo (même retour utilisateur)** :
+`appliquerZoomLightbox()` borne désormais `lightboxPanX`/`lightboxPanY`
+pour qu'un bord de la photo (zoomée) ne puisse jamais rentrer depuis
+l'intérieur de l'écran -- au pire il touche le bord de l'écran, jamais
+plus. Calcul : `img.offsetWidth`/`offsetHeight` (taille de mise en
+page "contain" à zoom 1, `transform: scale()` ne change pas la mise en
+page) x `lightboxZoom` donne la taille réellement affichée, comparée à
+`overlay.clientWidth`/`clientHeight` (le viewport) ; la moitié de
+l'excédent (s'il y en a) est la borne. Vérifié réellement (calcul
+direct) : image plus petite que l'écran même zoomée -> pan forcé à 0
+(rien à borner) ; image plus grande -> pan clampé exactement à la
+valeur attendue.
