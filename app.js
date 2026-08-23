@@ -936,9 +936,18 @@ function soumettreFormulaire(evenement) {
       return idEnEdition ? modifierEntree({ ...entreeExistante, ...donnees }) : ajouterEntree(donnees);
     })
     .then(() => {
+      // idEnEdition capturé avant fermerFormulaire() (qui le remet à
+      // null) -- s'il y en avait un, c'est une édition : retour à
+      // l'écran de détail (non éditable) de cette même sortie plutôt
+      // que juste refermer, retour utilisateur. Un ajout (pas d'id)
+      // referme simplement, comme avant -- rien à "retourner" voir,
+      // aucun écran de détail n'a précédé le formulaire dans ce cas.
+      const idSortieEditee = idEnEdition;
       fermerFormulaire();
       afficherToast(t(currentLanguage, "toastEnregistre"));
-      return chargerEntrees();
+      return chargerEntrees().then(() => {
+        if (idSortieEditee) afficherDetail(idSortieEditee);
+      });
     })
     .catch((erreur) => {
       console.warn("Échec de l'enregistrement :", erreur);
