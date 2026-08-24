@@ -951,3 +951,39 @@ très en amont : ces balises seules ne suffisent pas, tout le reste
 (comportement de `capture="environment"` sur Safari, fiabilité réelle
 du stockage sur plusieurs jours, rendu Leaflet...) doit être vérifié à
 la main sur un iPhone.
+
+## Regroupement Liste + clustering Carte (retour utilisateur, 2026-08-24)
+
+**Vue Liste** : en-têtes de groupe calées sur le critère de tri déjà
+choisi (`tri-liste`), pas un contrôle "grouper par" séparé --
+`cleGroupeListe(entree, critere)` retourne `{cle, libelle}` ou `null`.
+`date-desc`/`date-asc` groupent par mois (`formaterMoisAnnee()`,
+nouvelle fonction miroir de `formaterDate()`), `lieu-asc` par lieu
+exact, `discipline-asc` par discipline. **Pas de groupement pour
+`titre-asc`** -- les titres sont surtout uniques, un en-tête par
+entrée n'aiderait pas à balayer la liste, choix délibéré plutôt
+qu'oublié. `rafraichirListe()` insère un `<div class="liste-groupe-entete">`
+avant chaque nouvelle entrée dont la clé de groupe diffère de la
+précédente (liste déjà triée -- une clé de groupe non contiguë
+signifierait un bug de tri, pas géré séparément). Vérifié réellement
+(Selenium) pour les 4 critères, y compris l'absence d'en-têtes sur
+`titre-asc`.
+
+**Vue Carte** : `Leaflet.markercluster` 1.5.3 vendoré (même principe
+que Leaflet lui-même -- unpkg, committé, jamais de CDN à l'exécution).
+`carteCouchePins` passe de `L.layerGroup()` à `L.markerClusterGroup()`
+-- seul changement fonctionnel nécessaire, le reste du code
+(`marker.addTo(carteCouchePins)`, `marker.on("click", ...)`) est
+inchangé, le plugin est une extension compatible de `L.FeatureGroup`.
+Clusters recolorés sur la palette de l'appli (`var(--gold)`, un seul
+ton pour les trois paliers small/medium/large -- MarkerCluster.Default.css
+utilise vert/jaune/orange par défaut, pas cohérent avec l'identité
+visuelle). `pinCarteActif.getElement()?.` (déjà en optional chaining
+avant ce changement) protège déjà contre le cas où un marqueur est
+caché dans un cluster non éclaté -- aucun changement nécessaire là.
+Vérifié réellement (Selenium, points très proches) : 3 marqueurs
+proches -> 1 cluster affichant "3" à faible zoom ; zoom élevé sur le
+point -> éclatement partiel (les points les plus proches entre eux
+peuvent rester groupés même à zoom max, `maxClusterRadius` par défaut
+80px étant en pixels d'écran, pas en distance réelle -- comportement
+normal du plugin, pas un bug).

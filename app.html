@@ -26,6 +26,12 @@
 </script>
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="leaflet.css">
+<!-- Leaflet.markercluster 1.5.3 vendoré (retour utilisateur -- regrouper
+     les marqueurs proches sur la vue Carte), même principe que Leaflet
+     lui-même : téléchargé depuis unpkg et committé, jamais chargé
+     depuis un CDN à l'exécution. -->
+<link rel="stylesheet" href="MarkerCluster.css">
+<link rel="stylesheet" href="MarkerCluster.Default.css">
 <style>
   /* Ossature de l'appli (issue #1) -- header, bascule de vue, nav
      basse, FAB. Les deux vues restent des placeholders : leur contenu
@@ -96,6 +102,20 @@
   .pin-carte { display: flex; align-items: flex-end; justify-content: center; overflow: visible; cursor: pointer; }
   .pin-carte svg { width: 28px; height: 28px; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
   .pin-carte.pin-carte-actif svg { width: 38px; height: 38px; }
+  /* Clusters Leaflet.markercluster (retour utilisateur) -- recolorés
+     sur la palette de l'appli plutôt que le vert/jaune/orange par
+     défaut du plugin (voir MarkerCluster.Default.css). Un seul ton
+     or pour les trois paliers de taille (small/medium/large) : à
+     l'échelle d'un carnet perso, la distinction de taille par couleur
+     n'apporte pas grand-chose, mieux vaut rester cohérent avec le
+     reste de l'identité visuelle. */
+  .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+    background-color: color-mix(in srgb, var(--gold) 35%, transparent);
+  }
+  .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
+    background-color: var(--gold);
+  }
+  .marker-cluster span { color: #1a1206; font-weight: 700; font-family: var(--font-ui, inherit); }
   /* Bouton "me localiser" -- contrôle Leaflet custom (voir ControleLocaliser
      dans app.js), calqué visuellement sur .leaflet-bar natif pour rester
      cohérent avec les boutons de zoom. */
@@ -146,6 +166,16 @@
   .tri-liste-ligne label { font-size: 12.5px; color: var(--text-muted); }
 
   .card-list { display: flex; flex-direction: column; gap: 10px; }
+  /* En-tête de groupe (retour utilisateur) -- calée sur le critère de
+     tri, voir cleGroupeListe() dans app.js. margin-top plutôt que
+     padding sur le premier : le gap du flex parent espace déjà chaque
+     enfant de 10px, un padding en plus doublerait l'espacement avant
+     le tout premier groupe. */
+  .liste-groupe-entete {
+    font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-faint); margin-top: 6px;
+  }
+  .liste-groupe-entete:first-child { margin-top: 0; }
   .carte-entree { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; text-align: left; width: 100%; font-family: inherit; }
   .carte-vignette { position: relative; width: 58px; height: 58px; border-radius: 10px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .vignette-badge { position: absolute; bottom: -3px; right: -3px; background: var(--gold); color: #1a1206; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 999px; border: 2px solid var(--surface); line-height: 1.3; }
@@ -615,6 +645,7 @@
 <script src="sw-register.js"></script>
 <script src="storage.js"></script>
 <script src="leaflet.js"></script>
+<script src="leaflet.markercluster.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -29,6 +29,8 @@ const TRANSLATIONS = {
     themeDarkLabel: "Thème sombre",
 
     listeEmpty: "Aucune sortie enregistrée -- ajoute la première avec le bouton +.",
+    listeSansDiscipline: "Sans discipline",
+    listeSansDate: "Sans date",
     triListeLabel: "Trier :",
     triDateDesc: "Plus récent",
     triDateAsc: "Plus ancien",
@@ -149,6 +151,8 @@ const TRANSLATIONS = {
     themeDarkLabel: "Dark theme",
 
     listeEmpty: "No session recorded yet -- add your first one with the + button.",
+    listeSansDiscipline: "No discipline",
+    listeSansDate: "No date",
     triListeLabel: "Sort:",
     triDateDesc: "Most recent",
     triDateAsc: "Oldest",

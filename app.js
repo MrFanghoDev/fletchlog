@@ -177,6 +177,15 @@ function formaterDate(dateISO) {
   return d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
+// "Août 2026" -- pour les en-têtes de groupe de la vue Liste triée par
+// date (voir cleGroupeListe()), même logique de locale que formaterDate().
+function formaterMoisAnnee(dateISO) {
+  const d = new Date(`${dateISO}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dateISO;
+  const locale = currentLanguage === "en" ? "en-GB" : "fr-FR";
+  return d.toLocaleDateString(locale, { month: "long", year: "numeric" });
+}
+
 // Vignette partagée entre la vue Liste (carteHTML) et l'aperçu de la
 // vue Carte (afficherApercuCarte) -- première photo + badge "+N" si
 // plusieurs (issue #12), même logique aux deux endroits.
@@ -261,12 +270,44 @@ function trierEntrees(entrees) {
   return entrees.slice().sort(COMPARATEURS_TRI[critere] || COMPARATEURS_TRI["date-desc"]);
 }
 
+// Regroupement de la vue Liste (retour utilisateur) -- calé sur le
+// critère de tri déjà choisi plutôt qu'un contrôle "grouper par"
+// séparé : la clé de groupe n'a de sens que si la liste est déjà
+// triée dessus (des groupes non contigus se répéteraient sinon).
+// Pas de groupement pour titre-asc -- les titres sont surtout
+// uniques, un en-tête par entrée n'aiderait pas à balayer la liste.
+function cleGroupeListe(entree, critere) {
+  if (critere === "date-desc" || critere === "date-asc") {
+    const cle = entree.date ? entree.date.slice(0, 7) : "";
+    return { cle, libelle: entree.date ? formaterMoisAnnee(entree.date) : t(currentLanguage, "listeSansDate") };
+  }
+  if (critere === "lieu-asc") {
+    return { cle: entree.lieu, libelle: entree.lieu };
+  }
+  if (critere === "discipline-asc") {
+    const cle = entree.discipline || "";
+    return { cle, libelle: entree.discipline || t(currentLanguage, "listeSansDiscipline") };
+  }
+  return null;
+}
+
 function rafraichirListe() {
   const conteneur = document.getElementById("liste-cartes");
   const vide = document.getElementById("liste-vide");
+  const critere = document.getElementById("tri-liste").value;
   const filtrees = trierEntrees(entreesFiltrees());
 
-  conteneur.innerHTML = filtrees.map(carteHTML).join("");
+  let html = "";
+  let cleGroupePrecedente = undefined;
+  filtrees.forEach((entree) => {
+    const groupe = cleGroupeListe(entree, critere);
+    if (groupe && groupe.cle !== cleGroupePrecedente) {
+      html += `<div class="liste-groupe-entete">${_echapperTexte(groupe.libelle)}</div>`;
+      cleGroupePrecedente = groupe.cle;
+    }
+    html += carteHTML(entree);
+  });
+  conteneur.innerHTML = html;
   vide.hidden = entreesActuelles.length > 0;
   conteneur.hidden = entreesActuelles.length === 0;
 
@@ -324,7 +365,13 @@ function initCarte() {
   carteMap = L.map("carte-leaflet", { attributionControl: true, zoomControl: false }).setView([46.6, 2.4], 5);
   L.control.zoom({ position: "bottomleft" }).addTo(carteMap);
   ajouterCoucheTuilesOSM(carteMap);
-  carteCouchePins = L.layerGroup().addTo(carteMap);
+  // markerClusterGroup (retour utilisateur -- Leaflet.markercluster
+  // vendoré, voir app.html) plutôt qu'un simple layerGroup : plusieurs
+  // sorties au même club/lieu se chevauchaient sur la carte, regroupées
+  // maintenant sous un même marqueur avec un compteur, éclaté au zoom
+  // ou au tap. maxClusterRadius par défaut (80px) laissé tel quel --
+  // aucun retour d'usage réel encore pour le retoucher.
+  carteCouchePins = L.markerClusterGroup().addTo(carteMap);
   new ControleLocaliser().addTo(carteMap);
 }
 
