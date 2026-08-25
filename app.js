@@ -120,6 +120,32 @@ function verifierRappelExport() {
   document.getElementById("rappel-export").hidden = false;
 }
 
+// Déclencheur supplémentaire sur changement de version (retour
+// utilisateur, 2026-08-25) -- le rappel périodique ci-dessus laisse
+// jusqu'à 30 jours entre deux relances ; celui-ci vise précisément le
+// moment identifié comme risqué : juste après qu'une nouvelle version
+// se soit installée (la mise à jour du service worker ne touche
+// jamais IndexedDB, mais une éviction de stockage par le navigateur
+// peut coïncider avec ce moment -- voir CLAUDE.md, issue #18).
+// FLETCHLOG_VERSION vaut "dev" hors production (jamais patché par le
+// workflow de déploiement) -- pas de faux déclenchement en local.
+// Ignore volontairement le masquage de session du rappel périodique :
+// signal distinct, plus important. Passe devant le rappel périodique
+// s'il se déclenche aussi (retourne true dans ce cas).
+function verifierChangementVersion() {
+  if (typeof FLETCHLOG_VERSION === "undefined" || FLETCHLOG_VERSION === "dev") return false;
+  const derniereVue = localStorage.getItem("fletchlog_derniere_version_vue");
+  localStorage.setItem("fletchlog_derniere_version_vue", FLETCHLOG_VERSION);
+  if (!derniereVue || derniereVue === FLETCHLOG_VERSION) return false;
+  if (entreesActuelles.length === 0) return false;
+  document.querySelector('#rappel-export [data-i18n="rappelExportTexte"]').textContent = t(
+    currentLanguage,
+    "rappelExportTexteVersion"
+  );
+  document.getElementById("rappel-export").hidden = false;
+  return true;
+}
+
 // ---- Vue Liste : filtres + cartes ---------------------------------
 
 function valeursDistinctes(champ) {
@@ -1240,4 +1266,6 @@ function initFormulaire() {
 applyTranslations();
 initNavigation();
 initFormulaire();
-chargerEntrees().then(verifierRappelExport);
+chargerEntrees().then(() => {
+  if (!verifierChangementVersion()) verifierRappelExport();
+});

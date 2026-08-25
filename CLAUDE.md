@@ -1032,3 +1032,53 @@ retenue** : pour un layout canvas avec du contenu de hauteur variable
 empiler à partir d'une extrémité fixe (ici le bas) plutôt que de
 calculer une position absolue pour un élément "en bas" indépendamment
 de ce qui a été dessiné juste au-dessus.
+
+## Rappel d'export déclenché sur changement de version (retour utilisateur, 2026-08-25)
+
+Signalé par l'utilisateur : perte de données constatée en passant de
+v0.6.x à v0.7.0. Diagnostiqué avant de coder quoi que ce soit -- `git
+diff v0.6.0 v0.7.0` sur `storage.js`/`manifest.json`/`sw.js` ne montre
+aucun changement touchant IndexedDB (juste le numéro de cache habituel
+et l'ajout de `souvenir.js` à la liste des fichiers précachés) : la
+mise à jour elle-même (le service worker se met à jour en place via
+`skipWaiting`) n'a rien fait qui puisse vider le stockage. Cause la
+plus probable : une éviction de stockage par le navigateur/OS
+(voir déjà #18 ci-dessus, "Rappel d'export + stockage persistant"),
+qui a coïncidé avec le moment où l'utilisateur a découvert la nouvelle
+version, sans lien de cause à effet direct.
+
+Plutôt qu'une vraie synchronisation/sauvegarde serveur (disproportionné
+pour ce projet, contraire au principe local-only assumé, voir CLAUDE.md
+racine), renforcement du mécanisme existant : le rappel d'export
+périodique (issue #18, tous les 30 jours) laisse une fenêtre large
+entre deux relances -- ajout d'un second déclencheur, indépendant du
+délai, qui vise précisément le moment identifié comme risqué.
+
+- `verifierChangementVersion()` (`app.js`) : compare `FLETCHLOG_VERSION`
+  (chargé désormais aussi dans `app.html`, comme les deux autres pages --
+  jusqu'ici seul le footer d'`index.html`/`aide.html` en avait besoin)
+  à `localStorage.fletchlog_derniere_version_vue`. Différence détectée
+  (et au moins une entrée existante) -> bandeau `#rappel-export` affiché
+  immédiatement, avec un texte spécifique
+  (`rappelExportTexteVersion`) plutôt que le texte générique du rappel
+  périodique -- remplace le `textContent` du `<span>` directement (pas
+  besoin de refaire passer par `applyTranslations()`, le DOM est
+  reconstruit à chaque chargement de page donc rien à restaurer).
+  Ignore volontairement `sessionStorage.fletchlog_rappel_export_masque`
+  (signal distinct du rappel périodique, plus important). `dev` (valeur
+  locale non patchée par le workflow de déploiement) n'y déclenche
+  jamais rien -- pas de faux positif hors production.
+- Appelé en priorité dans `chargerEntrees().then(...)` : si
+  `verifierChangementVersion()` ne se déclenche pas (première visite
+  avec cette version, ou version inchangée), repli sur
+  `verifierRappelExport()` (comportement à 30 jours inchangé).
+
+**Vérifié réellement** (Selenium, patch temporaire de `version.js` sur
+disque pour simuler une valeur de production -- `const
+FLETCHLOG_VERSION` étant déclarée dans un `<script>` classique séparé,
+pas moyen fiable de la réassigner depuis l'extérieur après coup, un
+`const` au niveau supérieur n'est pas exposé comme propriété
+réassignable de `window`) : bandeau affiché avec le bon texte au
+passage v0.6.0 -> v0.7.0, `localStorage` mémorise bien la nouvelle
+version, pas de redéclenchement à version inchangée. `version.js`
+restauré à `"dev"` immédiatement après (jamais committé patché).
