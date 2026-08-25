@@ -245,13 +245,19 @@ function entreesFiltrees() {
   const lieu = document.getElementById("filtre-lieu").value;
   const label = document.getElementById("filtre-label").value;
   const recherche = document.getElementById("recherche-commentaire").value.trim().toLowerCase();
+  // AAAA-MM-JJ se compare lexicographiquement comme des dates -- pas
+  // besoin de parser en Date pour un simple "dans la plage".
+  const dateDebut = document.getElementById("filtre-date-debut").value;
+  const dateFin = document.getElementById("filtre-date-fin").value;
   return entreesActuelles.filter(
     (e) =>
       (!discipline || e.discipline === discipline) &&
       (!distance || e.distance === distance) &&
       (!lieu || e.lieu === lieu) &&
       (!label || (e.labels || []).includes(label)) &&
-      (!recherche || (e.commentaire || "").toLowerCase().includes(recherche))
+      (!recherche || (e.commentaire || "").toLowerCase().includes(recherche)) &&
+      (!dateDebut || e.date >= dateDebut) &&
+      (!dateFin || e.date <= dateFin)
   );
 }
 
@@ -1219,6 +1225,9 @@ function initFormulaire() {
     });
   });
   document.getElementById("recherche-commentaire").addEventListener("input", () => rafraichirAffichage());
+  ["filtre-date-debut", "filtre-date-fin"].forEach((id) => {
+    document.getElementById(id).addEventListener("change", () => rafraichirAffichage());
+  });
   document.getElementById("tri-liste").addEventListener("change", () => rafraichirListe());
 
   document.getElementById("position-recapturer").addEventListener("click", demarrerCaptureGPS);

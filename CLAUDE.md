@@ -987,3 +987,48 @@ point -> éclatement partiel (les points les plus proches entre eux
 peuvent rester groupés même à zoom max, `maxClusterRadius` par défaut
 80px étant en pixels d'écran, pas en distance réelle -- comportement
 normal du plugin, pas un bug).
+
+## Filtre de période + carte souvenir (retour utilisateur, 2026-08-25)
+
+**Filtre de période** : deux `<input type=date>` ("Du"/"Au") ajoutés à
+`#filtres-barre`, aux côtés des chip-select existants -- s'applique
+aux vues Liste et Carte comme les autres filtres (`entreesFiltrees()`
+dans app.js compare directement les chaînes AAAA-MM-JJ, lexicographiquement
+ordonnées, pas besoin de parser en `Date`). Pas de bouton "réinitialiser
+les filtres" dans ce projet (déjà le cas pour les chip-select
+existants) -- cohérent de ne pas en ajouter un seulement pour la
+période.
+
+**Carte souvenir** (`souvenir.js`, fichier séparé -- même principe
+qu'`export-import.js`, fonctionnalité autonome plutôt que de grossir
+app.js) : image récapitulative en `<canvas>` (1080x1350, aucune
+dépendance ajoutée) générée à partir des sorties actuellement
+filtrées (`entreesFiltrees()`, appelée telle quelle -- pas d'état de
+filtre propre à la carte souvenir). Titre déduit automatiquement du
+résultat : un seul lieu -> ce lieu ; sinon une seule discipline -> elle ;
+sinon une période choisie -> "Du ... au ..." ; sinon "N sorties". Une
+seule photo "vedette" (la sortie filtrée la plus récente qui en a une,
+`photosCache` déjà rempli par `precharcherPhotos()` -- aucune nouvelle
+lecture IndexedDB) plutôt qu'une mosaïque, pour rester simple à mettre
+en page proprement. Répartition météo en icônes+compteurs. Bouton
+Télécharger toujours actif ; bouton Partager affiché seulement si
+`navigator.canShare` supporte les fichiers (repli sur Télécharger si le
+partage échoue ou est annulé), même patron que `livrerExport()` dans
+export-import.js -- dupliqué en plus petit ici plutôt que de créer une
+dépendance entre aide.html (où vit export-import.js) et app.html (où
+vit souvenir.js), qui ne chargent pas les mêmes scripts.
+
+**Bug réel rencontré en testant** : l'empilage du texte (titre, sous-titre,
+compteur, météo, pied de page "FletchLog") était fait du HAUT vers le
+BAS avec le pied de page à une position Y fixe -- avec un titre court
+et un sous-titre présent, le compteur "N sorties" finissait quasiment à
+la même hauteur que le pied de page, les deux textes se chevauchant
+visuellement. Corrigé en empilant plutôt du BAS vers le HAUT (position
+Y du pied de page fixe, chaque élément au-dessus décale le curseur d'un
+pas connu avant de dessiner) -- garantit qu'aucun élément ne peut plus
+chevaucher un autre, quelle que soit la hauteur du titre. **Leçon
+retenue** : pour un layout canvas avec du contenu de hauteur variable
+(titre qui peut faire 1 ou 2 lignes, sous-titre optionnel...), toujours
+empiler à partir d'une extrémité fixe (ici le bas) plutôt que de
+calculer une position absolue pour un élément "en bas" indépendamment
+de ce qui a été dessiné juste au-dessus.

@@ -159,6 +159,25 @@
   }
   select.chip-select.active { border-color: var(--gold); background-color: var(--gold-dim); color: var(--gold); font-weight: 600; }
 
+  /* Période (retour utilisateur -- filtrer par date, notamment pour la
+     carte souvenir) -- deux <input type=date> natifs plutôt qu'un vrai
+     sélecteur de plage : le picker natif Android est déjà une bonne
+     expérience mobile (même raisonnement que les chip-select ci-dessus). */
+  .periode-filtre { display: flex; align-items: center; gap: 6px; padding: 0 0 10px; }
+  .periode-filtre input[type=date] {
+    flex: 1; min-width: 0; font-family: var(--font-ui); font-size: 12.5px;
+    padding: 6px 8px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-muted);
+  }
+  .periode-filtre input[type=date]:valid { color: var(--text); }
+  .periode-separateur { color: var(--text-faint); font-size: 12px; flex-shrink: 0; }
+  .bouton-souvenir {
+    flex-shrink: 0; width: 32px; height: 32px; padding: 0; border-radius: 50%;
+    border: 1px solid var(--border); background: var(--surface); font-size: 15px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .bouton-souvenir:active { border-color: var(--gold); }
+
   /* Tri de la vue Liste (issue #17) -- propre à cette vue seule (le
      tri n'a pas de sens sur la vue Carte), donc en dehors du chip-row
      partagé entre les deux vues. */
@@ -365,6 +384,24 @@
   .lightbox-next { right: 10px; }
   .lightbox-nav[hidden] { display: none; }
 
+  /* Carte souvenir (retour utilisateur) -- image récapitulative
+     générée en <canvas> à partir des sorties actuellement filtrées
+     (voir souvenir.js). z-index: 27, au-dessus de la lightbox photo
+     (26) et sous la confirmation (30) -- ne cohabite avec aucun des
+     deux en usage normal. */
+  .souvenir-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.92); z-index: 27; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px); }
+  .souvenir-overlay[hidden] { display: none; }
+  .souvenir-fermer {
+    position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); right: 16px;
+    width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.12); color: #fff;
+    border: none; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  #souvenir-canvas { max-width: 100%; max-height: 70vh; max-height: 70dvh; width: auto; height: auto; border-radius: 14px; box-shadow: 0 8px 30px rgba(0,0,0,0.4); }
+  .souvenir-vide { color: rgba(255,255,255,0.7); font-size: 14px; text-align: center; max-width: 280px; }
+  .souvenir-actions { display: flex; gap: 10px; }
+  .souvenir-actions button { flex: 1; }
+  .souvenir-actions[hidden] { display: none; }
+
   .bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px)); z-index: 10; }
   .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; padding: 4px 22px; font-family: inherit; cursor: pointer; color: var(--text-faint); }
   .nav-btn svg { stroke: var(--text-faint); }
@@ -450,6 +487,16 @@
         <select class="chip-select" id="filtre-distance"></select>
         <select class="chip-select" id="filtre-lieu"></select>
         <select class="chip-select" id="filtre-label"></select>
+      </div>
+      <!-- Période (retour utilisateur -- carte souvenir) -- vient
+           compléter les filtres chip-row ci-dessus, s'applique aussi
+           aux vues Liste/Carte normales comme les autres filtres,
+           pas seulement à la carte souvenir. -->
+      <div class="periode-filtre">
+        <input type="date" id="filtre-date-debut" data-i18n-aria-label="filtreDateDebutLabel" aria-label="Du">
+        <span class="periode-separateur">→</span>
+        <input type="date" id="filtre-date-fin" data-i18n-aria-label="filtreDateFinLabel" aria-label="Au">
+        <button type="button" class="bouton-souvenir" id="bouton-souvenir" data-i18n-aria-label="souvenirBouton" aria-label="Carte souvenir">🖼️</button>
       </div>
     </div>
 
@@ -618,6 +665,16 @@
     <div class="lightbox-compteur" id="lightbox-compteur"></div>
   </div>
 
+  <div class="souvenir-overlay" id="souvenir-overlay" hidden>
+    <button type="button" class="souvenir-fermer" id="souvenir-fermer" data-i18n-aria-label="lightboxFermer" aria-label="Fermer">✕</button>
+    <canvas id="souvenir-canvas" width="1080" height="1350" hidden></canvas>
+    <p class="souvenir-vide" id="souvenir-vide" data-i18n="souvenirAucuneEntree" hidden>Aucune sortie ne correspond à ces filtres.</p>
+    <div class="souvenir-actions" id="souvenir-actions">
+      <button type="button" class="btn-annuler" id="souvenir-telecharger" data-i18n="souvenirTelecharger">Télécharger</button>
+      <button type="button" class="btn-primary" id="souvenir-partager" data-i18n="souvenirPartager" hidden>Partager</button>
+    </div>
+  </div>
+
   <div class="confirm-overlay" id="confirm-overlay" hidden>
     <div class="confirm-box">
       <p id="confirm-message"></p>
@@ -647,5 +704,6 @@
 <script src="leaflet.js"></script>
 <script src="leaflet.markercluster.js"></script>
 <script src="app.js"></script>
+<script src="souvenir.js"></script>
 </body>
 </html>
