@@ -14,11 +14,27 @@
  * pour les autres sorties filtrées qui ont aussi une photo (retour
  * utilisateur, 2026-08-25) -- juste la première photo de chacune
  * (photoIds[0]), pas une mosaïque complète par sortie.
+ *
+ * Carte au même ratio que la photo vedette (retour utilisateur,
+ * 2026-08-25) -- la photo remplit tout le cadre (plus de fond uni
+ * autour), infos superposées par-dessus via un dégradé sombre en bas
+ * plutôt qu'en dessous sur fond séparé. Ratio de la photo repris
+ * directement, borné à [RATIO_MIN, RATIO_MAX] pour éviter une carte
+ * absurdement étroite/large sur une photo au format inhabituel --
+ * dans cette plage, la photo remplit le cadre sans rognage visible.
  */
 
-const SOUVENIR_LARGEUR = 1080;
-const SOUVENIR_HAUTEUR = 1350;
+const SOUVENIR_LARGEUR_DEFAUT = 1080;
+const SOUVENIR_HAUTEUR_DEFAUT = 1350;
 const SOUVENIR_MARGE = 64;
+const SOUVENIR_RATIO_MIN = 0.55; // proche de 9:16, portrait téléphone habituel
+// 1.5 (3:2) plutôt que 16:9 (1.78) -- avec titre sur 2 lignes +
+// sous-titre + météo + bande de vignettes, le bloc de texte empilé
+// peut atteindre ~600px de haut ; une carte trop basse le ferait
+// déborder au-dessus du cadre. 1.5 laisse une marge de sécurité
+// (hauteur mini 720px à largeur 1080 fixe) sans trop s'écarter du
+// ratio réel d'une photo paysage.
+const SOUVENIR_RATIO_MAX = 1.5;
 
 // Bande de vignettes des sorties supplémentaires -- une seule rangée,
 // jamais plus (pas de défilement possible sur une image statique) :
@@ -75,6 +91,16 @@ function _photosSupplementaires(entrees, entreeVedette) {
     .map((e) => photosCache[e.photoIds[0]]);
 }
 
+// Largeur fixe (1080, cohérent avec les tailles de police/marges déjà
+// calibrées dessus), hauteur dérivée du ratio de la photo vedette
+// (borné) -- ou format par défaut 4:5 s'il n'y a pas de photo.
+function _dimensionsCarte(photo) {
+  const largeur = SOUVENIR_LARGEUR_DEFAUT;
+  if (!photo) return { largeur, hauteur: SOUVENIR_HAUTEUR_DEFAUT };
+  const ratio = Math.min(Math.max(photo.width / photo.height, SOUVENIR_RATIO_MIN), SOUVENIR_RATIO_MAX);
+  return { largeur, hauteur: Math.round(largeur / ratio) };
+}
+
 function _cheminRectArrondi(ctx, x, y, taille, rayon) {
   ctx.beginPath();
   ctx.moveTo(x + rayon, y);
@@ -96,6 +122,16 @@ function _dessinerVignette(ctx, image, x, y, taille, rayon) {
   const largeur = image.width * echelle;
   const hauteur = image.height * echelle;
   ctx.drawImage(image, x + (taille - largeur) / 2, y + (taille - hauteur) / 2, largeur, hauteur);
+  ctx.restore();
+  // Fin liseré -- la carte entière est désormais une photo en fond
+  // (retour utilisateur, 2026-08-25), les vignettes ont besoin d'un
+  // bord net pour rester lisibles par-dessus une image potentiellement
+  // chargée, même sous le dégradé.
+  ctx.save();
+  _cheminRectArrondi(ctx, x, y, taille, rayon);
+  ctx.strokeStyle = "rgba(255,255,255,0.7)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -187,15 +223,6 @@ function _decouperTexte(ctx, texte, largeurMax, maxLignes) {
 async function _dessinerSouvenir(entrees) {
   const canvas = document.getElementById("souvenir-canvas");
   const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, SOUVENIR_LARGEUR, SOUVENIR_HAUTEUR);
-
-  // Fond uni systématique (retour utilisateur, 2026-08-25) -- la photo
-  // n'est plus recadrée en plein cadre (elle gardera son ratio
-  // d'origine, "contain" plutôt que "cover", dessinée plus bas une
-  // fois la zone qui lui est réservée connue), donc plus besoin d'un
-  // fond qui ne servait qu'à combler ses bords rognés.
-  ctx.fillStyle = "#0f1216";
-  ctx.fillRect(0, 0, SOUVENIR_LARGEUR, SOUVENIR_HAUTEUR);
 
   const entreeVedette = _entreeVedette(entrees);
   const urlPhotoVedette = entreeVedette ? photosCache[entreeVedette.photoIds[0]] : null;
@@ -210,6 +237,38 @@ async function _dessinerSouvenir(entrees) {
   ]);
   const vignettesChargees = vignettes.filter(Boolean);
 
+  // Dimensions dérivées du ratio de la photo vedette (retour
+  // utilisateur, 2026-08-25) -- changer canvas.width/height efface et
+  // redimensionne le canvas, pas besoin de clearRect séparé.
+  const { largeur, hauteur } = _dimensionsCarte(photo);
+  canvas.width = largeur;
+  canvas.height = hauteur;
+
+  ctx.fillStyle = "#0f1216";
+  ctx.fillRect(0, 0, largeur, hauteur);
+
+  if (photo) {
+    // "Cover" -- le canvas est déjà au ratio de la photo (à la marge
+    // de bornage près), donc ceci remplit le cadre sans rogner de
+    // façon visible dans l'immense majorité des cas ; seule une photo
+    // au ratio extrême (hors [RATIO_MIN, RATIO_MAX]) perd un peu de
+    // ses bords après bornage, plutôt que de produire une carte
+    // absurdement étroite/large.
+    const echelle = Math.max(largeur / photo.width, hauteur / photo.height);
+    const largeurPhoto = photo.width * echelle;
+    const hauteurPhoto = photo.height * echelle;
+    ctx.drawImage(photo, (largeur - largeurPhoto) / 2, (hauteur - hauteurPhoto) / 2, largeurPhoto, hauteurPhoto);
+
+    // Dégradé sombre en bas pour la lisibilité du texte superposé --
+    // les infos sont de nouveau posées SUR la photo (retour
+    // utilisateur, 2026-08-25), pas en dessous sur fond séparé.
+    const degrade = ctx.createLinearGradient(0, hauteur * 0.4, 0, hauteur);
+    degrade.addColorStop(0, "rgba(15,18,22,0)");
+    degrade.addColorStop(1, "rgba(15,18,22,0.92)");
+    ctx.fillStyle = degrade;
+    ctx.fillRect(0, 0, largeur, hauteur);
+  }
+
   // Marque FletchLog en haut à gauche.
   if (icone) ctx.drawImage(icone, SOUVENIR_MARGE, 56, 48, 48);
   ctx.textBaseline = "alphabetic";
@@ -222,7 +281,7 @@ async function _dessinerSouvenir(entrees) {
   ctx.fillText("Log", xTexteMarque + largeurFletch, 90);
 
   const { titre, sousTitre } = _titreEtSousTitre(entrees);
-  const largeurTexte = SOUVENIR_LARGEUR - SOUVENIR_MARGE * 2;
+  const largeurTexte = largeur - SOUVENIR_MARGE * 2;
 
   // Empilage du BAS vers le HAUT (yCurseur descend d'un pas fixe et
   // connu avant chaque élément) -- contrairement à un empilage du haut
@@ -232,7 +291,7 @@ async function _dessinerSouvenir(entrees) {
   // remonter le contenu du bas jusqu'à chevaucher un élément suivant --
   // bug réel rencontré en testant : "FletchLog" en pied de page se
   // dessinait quasiment à la même hauteur que "N sorties" au-dessus).
-  let yCurseur = SOUVENIR_HAUTEUR - 40;
+  let yCurseur = hauteur - 40;
   ctx.font = "22px system-ui, -apple-system, sans-serif";
   ctx.fillStyle = "rgba(255,255,255,0.5)";
   ctx.fillText("FletchLog", SOUVENIR_MARGE, yCurseur);
@@ -292,30 +351,6 @@ async function _dessinerSouvenir(entrees) {
   for (let i = lignesTitre.length - 1; i >= 0; i--) {
     ctx.fillText(lignesTitre[i], SOUVENIR_MARGE, yCurseur);
     yCurseur -= 84;
-  }
-
-  // yCurseur pointe maintenant sur la ligne de base de la première
-  // ligne du titre -- le haut réel du bloc de texte est un peu
-  // au-dessus (hauteur d'ascendance de la police) ; marge de sécurité
-  // plutôt que de calculer l'ascent exact.
-  const hautBlocTexte = yCurseur + 20;
-
-  // Zone photo : entre le bas de la marque FletchLog et le haut du
-  // bloc de texte -- "contain" (jamais rognée, ratio d'origine
-  // conservé, retour utilisateur 2026-08-25), centrée dans cette zone
-  // plutôt qu'étirée/recadrée en plein cadre comme avant.
-  if (photo) {
-    const zoneHautY = 150;
-    const zoneBasY = hautBlocTexte - 30;
-    const zoneHauteur = zoneBasY - zoneHautY;
-    if (zoneHauteur > 0) {
-      const echelle = Math.min(SOUVENIR_LARGEUR / photo.width, zoneHauteur / photo.height);
-      const largeur = photo.width * echelle;
-      const hauteur = photo.height * echelle;
-      const x = (SOUVENIR_LARGEUR - largeur) / 2;
-      const y = zoneHautY + (zoneHauteur - hauteur) / 2;
-      ctx.drawImage(photo, x, y, largeur, hauteur);
-    }
   }
 }
 

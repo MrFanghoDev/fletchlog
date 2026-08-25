@@ -1221,3 +1221,55 @@ arrière-plan détaché) -- signalé explicitement à l'utilisateur plutôt
 que de prétendre à une vérification qui n'a pas eu lieu. À vérifier à
 la prochaine session si l'occasion se présente, ou par un retour
 utilisateur réel après déploiement.
+
+## Carte au ratio de la photo, infos superposées (retour utilisateur, 2026-08-25)
+
+Revirement sur la section juste au-dessus : demandé "la carte avec le
+même ratio que la photo, avec les infos et photos par-dessus" -- retour
+à des infos superposées SUR la photo (comme la toute première version
+de la carte souvenir) plutôt qu'en dessous sur fond séparé, mais cette
+fois avec un canvas dont le ratio suit la photo vedette au lieu d'un
+format fixe 1080x1350 qui la recadrait.
+
+- `_dimensionsCarte(photo)` (`souvenir.js`) : largeur fixe 1080
+  (cohérente avec les tailles de police déjà calibrées dessus), hauteur
+  = `1080 / ratio` où `ratio` = ratio réel de la photo **borné** à
+  `[SOUVENIR_RATIO_MIN=0.55, SOUVENIR_RATIO_MAX=1.5]`. Sans photo :
+  format par défaut 1080x1350 (4:5, inchangé).
+- **Pourquoi borner plutôt que suivre le ratio exact** : un titre sur 2
+  lignes + sous-titre + météo + bande de vignettes peut occuper jusqu'à
+  ~600px de haut empilés depuis le bas -- une carte trop plate (photo
+  très large) ferait déborder le titre au-dessus du cadre. 1.5 (3:2)
+  plutôt que 16:9 (1.78) garde une hauteur mini de 720px, marge de
+  sécurité suffisante. 0.55 côté portrait est plus généreux (une carte
+  haute a naturellement toute la place nécessaire en bas). Une photo
+  hors de ces bornes perd un peu de ses bords (toujours en "cover"),
+  plutôt que de produire une carte au format absurde.
+- `canvas.width`/`canvas.height` fixés dynamiquement dans
+  `_dessinerSouvenir()` d'après la photo chargée (déjà en mémoire à ce
+  stade, donc dimensions connues avant tout dessin) -- les modifier
+  efface et redimensionne le canvas, pas besoin de `clearRect` séparé.
+  Le CSS (`#souvenir-canvas { width:auto; height:auto; max-width:100%;
+  max-height:70vh }`) suit automatiquement, aucun changement requis
+  côté `app.html`.
+- Dégradé sombre en bas réintroduit (`hauteur*0.4` -> `1.0`, opacité
+  jusqu'à 0.92) pour la lisibilité du texte superposé -- supprimé puis
+  remis dans la même journée, selon la direction demandée à chaque
+  fois (voir section précédente pour le "sans dégradé, texte en
+  dessous").
+- Vignettes des sorties supplémentaires : liseré blanc fin ajouté
+  (`_dessinerVignette()`) -- nécessaire maintenant qu'elles peuvent
+  reposer sur une photo chargée plutôt qu'un fond uni, même sous le
+  dégradé.
+
+**Non vérifié visuellement, deuxième fois d'affilée** -- même
+instabilité de l'environnement de test que pour la section
+précédente (scratchpad vidé pendant l'exécution du test Selenium),
+qui ne s'est pas résorbée dans la même session. Signalé explicitement
+à l'utilisateur, qui a choisi de pousser/publier quand même et de
+vérifier lui-même en réel. Code revérifié à la main (calcul des bornes
+de ratio, marge de sécurité du bloc de texte empilé) mais **pas
+confirmé par un rendu réel** -- première chose à vérifier à la
+prochaine occasion si l'environnement redevient stable, notamment sur
+une vraie photo très large ou très haute (cas où le bornage entre en
+jeu) et sur le contraste du texte superposé sur une photo claire.
