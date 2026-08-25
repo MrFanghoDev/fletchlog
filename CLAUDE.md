@@ -1175,3 +1175,49 @@ premier a la photo la plus ancienne dans ce jeu de test) ; les deux
 ratios s'affichent intégralement, sans rognage, sans chevaucher le
 bloc de texte, capture plein résolution (`canvas.toDataURL()`)
 sauvegardée dans les deux cas pour vérification visuelle directe.
+
+## Bande de vignettes des sorties supplémentaires (retour utilisateur, 2026-08-25)
+
+Ajout demandé juste après le point ci-dessus : en plus de la photo
+vedette en grand format, une rangée de petites vignettes en bas de
+carte pour les autres sorties filtrées qui ont aussi une photo (juste
+la première, `photoIds[0]`, comme la vedette -- pas une mosaïque
+complète par sortie).
+
+- `_photosSupplementaires(entrees, entreeVedette)` (`souvenir.js`) :
+  même ordre de tri que la vedette (`trierEntrees()`), la vedette
+  exclue par id. `_entreeVedette()` remplace l'ancien `_photoVedette()`
+  -- retourne l'entrée entière (pas juste l'URL de la photo), pour
+  pouvoir l'exclure par id ici.
+- Plafonné à `SOUVENIR_VIGNETTE_MAX = 6` (140px de côté + 16px d'écart,
+  tient tout juste dans la largeur utile 952px = 1080 - 2×64 -- pas de
+  défilement possible sur une image statique). Au-delà, la dernière
+  vignette affichée porte un badge "+N" semi-transparent
+  (`_dessinerBadgePlus()`) plutôt que d'en dessiner davantage.
+- Recadrage en carré arrondi ("cover", via un chemin de clip --
+  `_dessinerVignette()`/`_cheminRectArrondi()`) -- cohérent avec les
+  vignettes du reste de l'appli (`.carte-vignette img { object-fit:
+  cover }`), à la différence volontaire de la photo vedette en grand
+  format (celle-ci reste en "contain", jamais rognée, voir la section
+  juste au-dessus -- le recadrage n'est acceptable qu'à cette taille
+  réduite, pas sur l'image principale).
+- Insérée dans l'empilage bas→haut existant, juste au-dessus du pied
+  de page "FletchLog" et avant la météo -- `yCurseur` y représente
+  alternativement une ligne de base de texte (`fillText`) et un haut
+  de bloc image (`drawImage`), il fallait donc réserver explicitement
+  `SOUVENIR_VIGNETTE_TAILLE + 34px` avant de laisser la suite de
+  l'empilage (météo/compteur/sous-titre/titre) continuer comme avant,
+  plutôt que de mélanger les deux conventions sans transition.
+
+**Non vérifié visuellement cette fois** -- écrit avec soin (calcul
+d'empilement revérifié à la main, cohérent avec le motif déjà établi
+et testé pour le reste de la carte) et passe `node --check`, mais
+contrairement à toutes les vérifications précédentes sur ce fichier,
+**pas de capture d'écran réelle obtenue** : l'environnement de test
+(Selenium + serveur HTTP local dans le scratchpad) a subi plusieurs
+purges complètes en cours d'exécution ce jour-là (dossier scratchpad
+entièrement vidé pendant que le test tournait, y compris en
+arrière-plan détaché) -- signalé explicitement à l'utilisateur plutôt
+que de prétendre à une vérification qui n'a pas eu lieu. À vérifier à
+la prochaine session si l'occasion se présente, ou par un retour
+utilisateur réel après déploiement.

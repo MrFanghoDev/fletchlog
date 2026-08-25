@@ -9,14 +9,25 @@
  * appelée telle quelle -- la carte souvenir n'a pas son propre état de
  * filtre, elle reflète exactement ce que l'utilisateur regarde déjà).
  * Une seule photo "vedette" (la première sortie filtrée qui en a une,
- * dans l'ordre de tri actuellement sélectionné dans la vue Liste)
- * plutôt qu'une mosaïque -- plus simple à mettre en page proprement en
- * canvas, et suffit à donner un vrai ancrage visuel à la carte.
+ * dans l'ordre de tri actuellement sélectionné dans la vue Liste) en
+ * grand format, plus une bande de petites vignettes en bas de carte
+ * pour les autres sorties filtrées qui ont aussi une photo (retour
+ * utilisateur, 2026-08-25) -- juste la première photo de chacune
+ * (photoIds[0]), pas une mosaïque complète par sortie.
  */
 
 const SOUVENIR_LARGEUR = 1080;
 const SOUVENIR_HAUTEUR = 1350;
 const SOUVENIR_MARGE = 64;
+
+// Bande de vignettes des sorties supplémentaires -- une seule rangée,
+// jamais plus (pas de défilement possible sur une image statique) :
+// 6 vignettes de 140px + 16px d'espacement tiennent tout juste dans la
+// largeur utile (1080 - 2*64 = 952px). Au-delà, la dernière vignette
+// affichée porte un badge "+N" plutôt que d'en dessiner davantage.
+const SOUVENIR_VIGNETTE_TAILLE = 140;
+const SOUVENIR_VIGNETTE_ECART = 16;
+const SOUVENIR_VIGNETTE_MAX = 6;
 
 const EMOJI_METEO = { ensoleille: "☀️", nuageux: "🌥️", pluie: "🌧️", vent: "💨" };
 
@@ -49,9 +60,61 @@ function _chargerPhoto(url) {
 // indépendamment du tri choisi. Photo déjà en cache (voir
 // precharcherPhotos() dans app.js -- appelée au chargement, donc
 // disponible ici sans nouvelle lecture IndexedDB).
-function _photoVedette(entrees) {
-  const avecPhoto = trierEntrees(entrees).find((e) => (e.photoIds || []).length && photosCache[e.photoIds[0]]);
-  return avecPhoto ? photosCache[avecPhoto.photoIds[0]] : null;
+function _entreeVedette(entrees) {
+  return trierEntrees(entrees).find((e) => (e.photoIds || []).length && photosCache[e.photoIds[0]]) || null;
+}
+
+// Sorties supplémentaires avec photo (retour utilisateur, 2026-08-25) --
+// même ordre de tri que la vedette, la vedette elle-même exclue
+// (identifiée par id, pas par photo -- deux sorties distinctes
+// pourraient en théorie partager un id de photo si l'une a été
+// dupliquée via import/export, mais jamais le même id d'entrée).
+function _photosSupplementaires(entrees, entreeVedette) {
+  return trierEntrees(entrees)
+    .filter((e) => e.id !== entreeVedette?.id && (e.photoIds || []).length && photosCache[e.photoIds[0]])
+    .map((e) => photosCache[e.photoIds[0]]);
+}
+
+function _cheminRectArrondi(ctx, x, y, taille, rayon) {
+  ctx.beginPath();
+  ctx.moveTo(x + rayon, y);
+  ctx.arcTo(x + taille, y, x + taille, y + taille, rayon);
+  ctx.arcTo(x + taille, y + taille, x, y + taille, rayon);
+  ctx.arcTo(x, y + taille, x, y, rayon);
+  ctx.arcTo(x, y, x + taille, y, rayon);
+  ctx.closePath();
+}
+
+// Dessine `image` en "cover" (recadrée, comme les vignettes du reste de
+// l'appli -- .carte-vignette img { object-fit: cover }) dans un carré
+// arrondi de côté `taille`, coin (x, y).
+function _dessinerVignette(ctx, image, x, y, taille, rayon) {
+  ctx.save();
+  _cheminRectArrondi(ctx, x, y, taille, rayon);
+  ctx.clip();
+  const echelle = Math.max(taille / image.width, taille / image.height);
+  const largeur = image.width * echelle;
+  const hauteur = image.height * echelle;
+  ctx.drawImage(image, x + (taille - largeur) / 2, y + (taille - hauteur) / 2, largeur, hauteur);
+  ctx.restore();
+}
+
+// Badge "+N" superposé sur la dernière vignette affichée, quand des
+// sorties supplémentaires avec photo dépassent SOUVENIR_VIGNETTE_MAX.
+function _dessinerBadgePlus(ctx, x, y, taille, rayon, n) {
+  ctx.save();
+  _cheminRectArrondi(ctx, x, y, taille, rayon);
+  ctx.clip();
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(x, y, taille, taille);
+  ctx.restore();
+  ctx.font = "700 34px system-ui, -apple-system, sans-serif";
+  ctx.fillStyle = "#ffffff";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(`+${n}`, x + taille / 2, y + taille / 2 + 2);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
 }
 
 function _titreEtSousTitre(entrees) {
@@ -134,8 +197,18 @@ async function _dessinerSouvenir(entrees) {
   ctx.fillStyle = "#0f1216";
   ctx.fillRect(0, 0, SOUVENIR_LARGEUR, SOUVENIR_HAUTEUR);
 
-  const urlPhoto = _photoVedette(entrees);
-  const [photo, icone] = await Promise.all([urlPhoto ? _chargerPhoto(urlPhoto) : null, _chargerIconeSouvenir()]);
+  const entreeVedette = _entreeVedette(entrees);
+  const urlPhotoVedette = entreeVedette ? photosCache[entreeVedette.photoIds[0]] : null;
+  const urlsSupplementaires = _photosSupplementaires(entrees, entreeVedette);
+  const urlsVignettesAffichees = urlsSupplementaires.slice(0, SOUVENIR_VIGNETTE_MAX);
+  const vignettesEnTrop = urlsSupplementaires.length - urlsVignettesAffichees.length;
+
+  const [photo, icone, ...vignettes] = await Promise.all([
+    urlPhotoVedette ? _chargerPhoto(urlPhotoVedette) : null,
+    _chargerIconeSouvenir(),
+    ...urlsVignettesAffichees.map((url) => _chargerPhoto(url)),
+  ]);
+  const vignettesChargees = vignettes.filter(Boolean);
 
   // Marque FletchLog en haut à gauche.
   if (icone) ctx.drawImage(icone, SOUVENIR_MARGE, 56, 48, 48);
@@ -163,6 +236,25 @@ async function _dessinerSouvenir(entrees) {
   ctx.font = "22px system-ui, -apple-system, sans-serif";
   ctx.fillStyle = "rgba(255,255,255,0.5)";
   ctx.fillText("FletchLog", SOUVENIR_MARGE, yCurseur);
+
+  // Bande de vignettes des sorties supplémentaires (retour utilisateur,
+  // 2026-08-25) -- juste au-dessus du pied de page. yCurseur passe ici
+  // de "ligne de base de texte" à "bas du bloc réservé" : les éléments
+  // suivants (météo, compteur...) repartent de cette nouvelle position
+  // comme si c'était le pied de page, la logique d'empilage bas->haut
+  // ne change pas au-delà de ce bloc.
+  if (vignettesChargees.length) {
+    const yHautVignettes = yCurseur - SOUVENIR_VIGNETTE_TAILLE - 34;
+    let x = SOUVENIR_MARGE;
+    vignettesChargees.forEach((image, i) => {
+      _dessinerVignette(ctx, image, x, yHautVignettes, SOUVENIR_VIGNETTE_TAILLE, 16);
+      if (i === vignettesChargees.length - 1 && vignettesEnTrop > 0) {
+        _dessinerBadgePlus(ctx, x, yHautVignettes, SOUVENIR_VIGNETTE_TAILLE, 16, vignettesEnTrop);
+      }
+      x += SOUVENIR_VIGNETTE_TAILLE + SOUVENIR_VIGNETTE_ECART;
+    });
+    yCurseur = yHautVignettes - 30;
+  }
 
   const meteo = _statsMeteo(entrees);
   if (meteo.length) {
