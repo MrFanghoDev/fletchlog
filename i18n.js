@@ -22,6 +22,7 @@ const TRANSLATIONS = {
 
     navListe: "Liste",
     navCarte: "Carte",
+    navExporter: "Exporter",
     carteEmpty: "Aucune sortie géolocalisée pour l'instant -- les sorties sans position GPS n'apparaissent que dans la Liste.",
     fabTitle: "Ajouter une sortie",
     themeSystemLabel: "Thème système",
@@ -154,6 +155,7 @@ const TRANSLATIONS = {
 
     navListe: "List",
     navCarte: "Map",
+    navExporter: "Export",
     carteEmpty: "No geotagged session yet -- sessions without a GPS position only show up in the List.",
     fabTitle: "Add a session",
     themeSystemLabel: "System theme",

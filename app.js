@@ -77,10 +77,15 @@ function mesurerHauteurEntete() {
 function initNavigation() {
   mesurerHauteurEntete();
   window.addEventListener("resize", mesurerHauteurEntete);
-  document.querySelectorAll(".nav-btn").forEach((bouton) => {
+  // [data-view] exclut le bouton d'export ajouté dans la même barre
+  // (retour utilisateur, 2026-08-25) -- une action, pas une vue à
+  // sélectionner, ne doit ni prendre l'état "active" ni faire
+  // disparaître les deux vues (vue === undefined ne correspondrait à
+  // aucune section .view).
+  document.querySelectorAll(".nav-btn[data-view]").forEach((bouton) => {
     bouton.addEventListener("click", () => {
       const vue = bouton.dataset.view;
-      document.querySelectorAll(".nav-btn").forEach((b) => b.classList.toggle("active", b === bouton));
+      document.querySelectorAll(".nav-btn[data-view]").forEach((b) => b.classList.toggle("active", b === bouton));
       document.querySelectorAll(".view").forEach((section) => {
         section.classList.toggle("active", section.id === `view-${vue}`);
       });
@@ -1255,6 +1260,26 @@ function initFormulaire() {
     document.getElementById(id).addEventListener("change", () => rafraichirAffichage());
   });
   document.getElementById("tri-liste").addEventListener("change", () => rafraichirListe());
+
+  // Export rapide depuis la barre du bas (retour utilisateur,
+  // 2026-08-25) -- même exporterSauvegarde()/livrerExport() que la
+  // page Aide (export-import.js chargé aussi ici désormais), pour ne
+  // pas dupliquer la logique zip/partage : juste un raccourci qui
+  // évite de quitter l'écran.
+  document.getElementById("bouton-export-rapide").addEventListener("click", () => {
+    const bouton = document.getElementById("bouton-export-rapide");
+    bouton.disabled = true;
+    afficherToast(t(currentLanguage, "exportEnCours"));
+    exporterSauvegarde()
+      .then((blob) => livrerExport(blob))
+      .catch((erreur) => {
+        console.warn("Échec de l'export :", erreur);
+        afficherToast(t(currentLanguage, "exportErreur"));
+      })
+      .finally(() => {
+        bouton.disabled = false;
+      });
+  });
 
   document.getElementById("position-recapturer").addEventListener("click", demarrerCaptureGPS);
   document.getElementById("position-retirer").addEventListener("click", retirerPosition);

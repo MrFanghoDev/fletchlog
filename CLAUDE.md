@@ -1082,3 +1082,49 @@ réassignable de `window`) : bandeau affiché avec le bon texte au
 passage v0.6.0 -> v0.7.0, `localStorage` mémorise bien la nouvelle
 version, pas de redéclenchement à version inchangée. `version.js`
 restauré à `"dev"` immédiatement après (jamais committé patché).
+
+## Export accessible depuis la barre du bas (retour utilisateur, 2026-08-25)
+
+Signalé juste après le rappel ci-dessus : l'export n'était pas assez
+visible (accessible seulement via la page Aide, ou le bandeau de
+rappel qui n'apparaît qu'à 30 jours/changement de version). Proposé et
+choisi avec l'utilisateur : un 3e bouton dans `.bottom-nav`
+(`#bouton-export-rapide`), à côté des deux onglets Liste/Carte, qui
+déclenche directement le vrai export (zip complet, même
+`exporterSauvegarde()`/`livrerExport()` que la page Aide -- pas de
+logique dupliquée) sans quitter l'écran.
+
+**Piège JS évité en écrivant ce ticket** : `.bottom-nav` avait
+jusqu'ici seulement deux boutons de VUE (`.nav-btn[data-view]`),
+sélectionnés génériquement en JS via `document.querySelectorAll(".nav-btn")`
+dans `initNavigation()` -- le clic lisait `bouton.dataset.view` puis
+togglait `.active` sur tous les `.nav-btn` et les sections `.view`
+selon `id === "view-" + vue`. Un bouton d'export avec juste la classe
+`.nav-btn` (pour hériter du même style) aurait été capté par ce même
+sélecteur : `vue` serait `undefined` (pas de `data-view`), aucune
+section `.view` ne correspondrait à `"view-undefined"`, et les DEUX
+vues auraient disparu au clic sur Exporter. Corrigé en restreignant le
+sélecteur à `.nav-btn[data-view]` aux deux endroits concernés --
+`.nav-btn` reste la classe de style partagée, `[data-view]` distingue
+les vrais onglets de vue d'un bouton d'action qui emprunte juste
+l'apparence. **Leçon générale** : un sélecteur générique sur une classe
+de style (`.nav-btn`, `.btn-primary`...) est fragile dès qu'on
+réutilise cette classe pour un élément qui n'a pas la même sémantique --
+préférer un attribut dédié (`[data-view]`) pour cibler le comportement,
+la classe restant purement visuelle.
+
+Séparé visuellement des deux onglets par une bordure + marge
+(`.nav-btn-action`) plutôt qu'un simple 3e bouton identique -- lecture
+"action" et non "3e vue possible" (jamais d'état `.active` dessus, vu
+plus haut). Nécessite de charger `jszip.min.js` + `export-import.js`
+aussi dans `app.html` désormais (jusqu'ici seulement dans `aide.html` --
+voir la note dans la section carte souvenir ci-dessus sur le principe
+de scripts non partagés entre ces deux pages : ce principe tenait pour
+`souvenir.js`, qui n'avait besoin que d'une petite fonction de
+téléchargement dupliquée ; ici on veut le VRAI export complet, donc le
+partage des fichiers l'emporte sur l'évitement de dépendance).
+
+**Vérifié réellement** (Selenium) : navigation Liste/Carte inchangée
+après le changement de sélecteur, le bouton Exporter ne prend jamais
+la classe `.active` et ne perturbe pas l'état des vues au clic, un
+vrai fichier `.zip` est téléchargé.

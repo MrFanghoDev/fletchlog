@@ -409,6 +409,13 @@
   .nav-btn.active svg { stroke: var(--gold); }
   .nav-btn span { font-size: 11px; }
   .nav-btn.active span { font-weight: 600; }
+  /* Bouton d'export dans la barre du bas (retour utilisateur -- export
+     pas assez visible, jusqu'ici accessible seulement via la page Aide
+     ou le bandeau de rappel). Séparé visuellement des deux onglets
+     Liste/Carte (bordure + marge) : c'est une action, pas une vue,
+     jamais d'état "active" dessus (voir [data-view] dans app.js). */
+  .nav-btn-action { margin-left: 10px; padding-left: 24px; border-left: 1px solid var(--border); }
+  .nav-btn-action:disabled { opacity: 0.5; }
 
   .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--surface-2); border: 1px solid var(--border); color: var(--text); font-size: 13px; padding: 8px 14px; border-radius: 999px; white-space: nowrap; box-shadow: 0 6px 16px rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.2s ease; z-index: 25; }
 
@@ -694,6 +701,10 @@
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke-width="1.9"><path d="M9 20l-6-2V6l6 2 6-2 6 2v12l-6-2-6 2Z"/><path d="M9 8v12M15 6v12"/></svg>
       <span data-i18n="navCarte">Carte</span>
     </button>
+    <button type="button" class="nav-btn nav-btn-action" id="bouton-export-rapide" data-i18n-aria-label="exportBouton" aria-label="Exporter mon carnet">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1"/></svg>
+      <span data-i18n="navExporter">Exporter</span>
+    </button>
   </nav>
 
 </div>
@@ -702,6 +713,8 @@
 <script src="sw-register.js"></script>
 <script src="version.js"></script>
 <script src="storage.js"></script>
+<script src="jszip.min.js"></script>
+<script src="export-import.js"></script>
 <script src="leaflet.js"></script>
 <script src="leaflet.markercluster.js"></script>
 <script src="app.js"></script>
