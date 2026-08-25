@@ -1128,3 +1128,50 @@ partage des fichiers l'emporte sur l'évitement de dépendance).
 après le changement de sélecteur, le bouton Exporter ne prend jamais
 la classe `.active` et ne perturbe pas l'état des vues au clic, un
 vrai fichier `.zip` est téléchargé.
+
+## Carte souvenir -- photo vedette et ratio d'origine (retour utilisateur, 2026-08-25)
+
+Deux corrections demandées après coup sur la carte souvenir (voir
+section dédiée plus haut) :
+
+1. **Photo vedette dépendante du tri sélectionné, pas systématiquement
+   la plus récente.** `_photoVedette()` (`souvenir.js`) appelait
+   directement un tri interne par date décroissante -- change pour
+   `trierEntrees(entrees)` (`app.js`, déjà utilisée par la vue Liste,
+   respecte le critère choisi dans `#tri-liste` : date, titre, lieu ou
+   discipline) puis prend la première entrée du résultat qui a une
+   photo en cache. La carte souvenir reflète maintenant exactement ce
+   que l'utilisateur regarde déjà (même principe que
+   `entreesFiltrees()`, déjà appelée telle quelle sans état de filtre
+   propre à la carte).
+2. **Photo affichée à son ratio d'origine, jamais rognée.** Le rendu
+   utilisait un `cover`-fit (`Math.max` des deux échelles) qui remplissait
+   tout le cadre 1080x1350 en coupant le haut/les côtés selon le ratio
+   réel de la photo -- changé en `contain`-fit (`Math.min`) dans une
+   zone dédiée (entre le bas de la marque FletchLog et le haut du bloc
+   de texte, calculée après avoir empilé le texte -- toujours du BAS
+   vers le HAUT comme avant, voir plus haut). Fond uni (`#0f1216`)
+   partout où la photo ne couvre pas la zone (au lieu d'un dégradé
+   posé SUR la photo, qui n'a plus de sens puisque le texte ne
+   chevauche plus jamais la photo). Conséquence attendue et acceptée :
+   une photo très différente du ratio 4:5 de la carte (paysage large,
+   portrait très étroit) laisse des bandes de fond uni au-dessus/en
+   dessous ou sur les côtés -- préféré à rogner la photo.
+
+Pas de changement côté stockage : `compresserPhoto()` (`app.js`)
+limite déjà chaque photo à 1600px sur le plus grand côté à
+l'enregistrement (JPEG qualité 0.7) -- un seul blob par photo, jamais
+de vignette distincte d'un original conservé séparément. Vérifié en
+répondant à la question de l'utilisateur avant de coder quoi que ce
+soit -- pas de gain de qualité à aller chercher côté stockage, le sujet
+réel était le rognage, pas la résolution.
+
+**Vérifié réellement** (Selenium, deux photos de tests générées avec
+Pillow -- une paysage 1600x900, une portrait 900x1600, deux sorties à
+des dates différentes) : la vedette passe bien de la photo la plus
+récente (tri par défaut, date décroissante) à la plus ancienne dès que
+le tri passe à "Titre (A→Z)" (la sortie au titre alphabétiquement
+premier a la photo la plus ancienne dans ce jeu de test) ; les deux
+ratios s'affichent intégralement, sans rognage, sans chevaucher le
+bloc de texte, capture plein résolution (`canvas.toDataURL()`)
+sauvegardée dans les deux cas pour vérification visuelle directe.

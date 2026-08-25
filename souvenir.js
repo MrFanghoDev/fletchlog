@@ -8,9 +8,10 @@
  * actuellement filtrées (entreesFiltrees(), définie dans app.js,
  * appelée telle quelle -- la carte souvenir n'a pas son propre état de
  * filtre, elle reflète exactement ce que l'utilisateur regarde déjà).
- * Une seule photo "vedette" (la plus récente sortie filtrée qui en a
- * une) plutôt qu'une mosaïque -- plus simple à mettre en page proprement
- * en canvas, et suffit à donner un vrai ancrage visuel à la carte.
+ * Une seule photo "vedette" (la première sortie filtrée qui en a une,
+ * dans l'ordre de tri actuellement sélectionné dans la vue Liste)
+ * plutôt qu'une mosaïque -- plus simple à mettre en page proprement en
+ * canvas, et suffit à donner un vrai ancrage visuel à la carte.
  */
 
 const SOUVENIR_LARGEUR = 1080;
@@ -41,15 +42,16 @@ function _chargerPhoto(url) {
   });
 }
 
-// Sortie la plus récente (date, puis creeLe en départage) parmi celles
-// qui ont au moins une photo déjà en cache (voir precharcherPhotos()
-// dans app.js -- appelée au chargement, donc déjà disponible ici sans
-// nouvelle lecture IndexedDB).
+// Première sortie avec photo dans l'ordre de tri actuellement
+// sélectionné dans la vue Liste (retour utilisateur, 2026-08-25) --
+// respecte ce que l'utilisateur regarde déjà (trierEntrees(), définie
+// dans app.js) plutôt que d'imposer systématiquement la plus récente,
+// indépendamment du tri choisi. Photo déjà en cache (voir
+// precharcherPhotos() dans app.js -- appelée au chargement, donc
+// disponible ici sans nouvelle lecture IndexedDB).
 function _photoVedette(entrees) {
-  const avecPhoto = entrees
-    .filter((e) => (e.photoIds || []).length && photosCache[e.photoIds[0]])
-    .sort((a, b) => (a.date !== b.date ? (a.date < b.date ? 1 : -1) : a.creeLe < b.creeLe ? 1 : -1));
-  return avecPhoto.length ? photosCache[avecPhoto[0].photoIds[0]] : null;
+  const avecPhoto = trierEntrees(entrees).find((e) => (e.photoIds || []).length && photosCache[e.photoIds[0]]);
+  return avecPhoto ? photosCache[avecPhoto.photoIds[0]] : null;
 }
 
 function _titreEtSousTitre(entrees) {
@@ -124,23 +126,16 @@ async function _dessinerSouvenir(entrees) {
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, SOUVENIR_LARGEUR, SOUVENIR_HAUTEUR);
 
+  // Fond uni systématique (retour utilisateur, 2026-08-25) -- la photo
+  // n'est plus recadrée en plein cadre (elle gardera son ratio
+  // d'origine, "contain" plutôt que "cover", dessinée plus bas une
+  // fois la zone qui lui est réservée connue), donc plus besoin d'un
+  // fond qui ne servait qu'à combler ses bords rognés.
+  ctx.fillStyle = "#0f1216";
+  ctx.fillRect(0, 0, SOUVENIR_LARGEUR, SOUVENIR_HAUTEUR);
+
   const urlPhoto = _photoVedette(entrees);
   const [photo, icone] = await Promise.all([urlPhoto ? _chargerPhoto(urlPhoto) : null, _chargerIconeSouvenir()]);
-
-  if (photo) {
-    const echelle = Math.max(SOUVENIR_LARGEUR / photo.width, SOUVENIR_HAUTEUR / photo.height);
-    const largeur = photo.width * echelle;
-    const hauteur = photo.height * echelle;
-    ctx.drawImage(photo, (SOUVENIR_LARGEUR - largeur) / 2, (SOUVENIR_HAUTEUR - hauteur) / 2, largeur, hauteur);
-    const degrade = ctx.createLinearGradient(0, SOUVENIR_HAUTEUR * 0.35, 0, SOUVENIR_HAUTEUR);
-    degrade.addColorStop(0, "rgba(15,18,22,0)");
-    degrade.addColorStop(1, "rgba(15,18,22,0.92)");
-    ctx.fillStyle = degrade;
-    ctx.fillRect(0, 0, SOUVENIR_LARGEUR, SOUVENIR_HAUTEUR);
-  } else {
-    ctx.fillStyle = "#0f1216";
-    ctx.fillRect(0, 0, SOUVENIR_LARGEUR, SOUVENIR_HAUTEUR);
-  }
 
   // Marque FletchLog en haut à gauche.
   if (icone) ctx.drawImage(icone, SOUVENIR_MARGE, 56, 48, 48);
@@ -205,6 +200,30 @@ async function _dessinerSouvenir(entrees) {
   for (let i = lignesTitre.length - 1; i >= 0; i--) {
     ctx.fillText(lignesTitre[i], SOUVENIR_MARGE, yCurseur);
     yCurseur -= 84;
+  }
+
+  // yCurseur pointe maintenant sur la ligne de base de la première
+  // ligne du titre -- le haut réel du bloc de texte est un peu
+  // au-dessus (hauteur d'ascendance de la police) ; marge de sécurité
+  // plutôt que de calculer l'ascent exact.
+  const hautBlocTexte = yCurseur + 20;
+
+  // Zone photo : entre le bas de la marque FletchLog et le haut du
+  // bloc de texte -- "contain" (jamais rognée, ratio d'origine
+  // conservé, retour utilisateur 2026-08-25), centrée dans cette zone
+  // plutôt qu'étirée/recadrée en plein cadre comme avant.
+  if (photo) {
+    const zoneHautY = 150;
+    const zoneBasY = hautBlocTexte - 30;
+    const zoneHauteur = zoneBasY - zoneHautY;
+    if (zoneHauteur > 0) {
+      const echelle = Math.min(SOUVENIR_LARGEUR / photo.width, zoneHauteur / photo.height);
+      const largeur = photo.width * echelle;
+      const hauteur = photo.height * echelle;
+      const x = (SOUVENIR_LARGEUR - largeur) / 2;
+      const y = zoneHautY + (zoneHauteur - hauteur) / 2;
+      ctx.drawImage(photo, x, y, largeur, hauteur);
+    }
   }
 }
 
