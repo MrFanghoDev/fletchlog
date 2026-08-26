@@ -1428,3 +1428,29 @@ revérifiée par script (133 clés de chaque côté, aucune orpheline).
 **Vérifié réellement** (Selenium) : titre du bouton "+", message liste
 vide, titre du formulaire d'ajout, toast après enregistrement -- en
 français ET après bascule vers l'anglais.
+
+## Choisir la vignette d'une entrée (retour utilisateur, 2026-08-26)
+
+Complète la sélection de photos ajoutée pour la carte souvenir (voir
+plus haut) : demandé en plus, le moyen de choisir/réordonner laquelle
+des photos d'UNE entrée sert de vignette (`photoIds[0]`, utilisé
+partout -- Liste, aperçu Carte, et maintenant vedette/vignette de la
+carte souvenir). Pas de vrai glisser-déposer -- un badge ★
+(`.photo-vignette-couverture`, réutilise le même motif visuel que
+l'écran de sélection de la carte souvenir) sur chaque vignette de la
+galerie du formulaire, affiché seulement s'il y a plus d'une photo
+(rien à choisir sinon) ; taper dessus fait passer cette photo en
+position 0 (`definirPhotoCouverture()`, un simple
+`splice`+`unshift`). `resoudrePhotosPourEnvoi()` préservait déjà
+l'ordre de `photosFormulaire` dans `photoIds` à l'enregistrement
+(commentaire du code : "dans l'ordre d'affichage") -- aucun changement
+nécessaire côté sauvegarde, juste réordonner le tableau en mémoire
+avant.
+
+**Vérifié réellement** (Selenium, 3 photos de couleurs distinctes,
+comparaison de pixels sur `<canvas>` plutôt que la simple présence
+d'une `src`) : vignette = rouge (1ère photo ajoutée) par défaut,
+devient bleue après avoir tapé le badge ★ de la 3e photo, et la carte
+de la vue Liste affiche bien la vignette bleue une fois l'entrée
+enregistrée -- confirme que l'ordre choisi dans le formulaire se
+propage correctement jusqu'à `photoIds` puis à l'affichage.

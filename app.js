@@ -620,10 +620,20 @@ function rendrePhotosGalerie() {
     .map((p, index) => {
       const url = p.urlApercu || photosCache[p.photoId];
       const contenu = url ? `<img src="${url}" alt="">` : ICONE_PLACEHOLDER_PHOTO;
+      // Badge vignette (retour utilisateur, 2026-08-26) -- pas de sens
+      // à en afficher un avec une seule photo (déjà forcément la
+      // vignette). photoIds[0] sert de vignette partout ailleurs dans
+      // l'appli (Liste, Carte, carte souvenir) -- ce badge est le seul
+      // moyen de la changer sans retirer/réajouter les photos.
+      const badgeCouverture =
+        photosFormulaire.length > 1
+          ? `<button type="button" class="photo-vignette-couverture${index === 0 ? " active" : ""}" data-index="${index}" data-i18n-aria-label="formPhotoCouverture" aria-label="${t(currentLanguage, "formPhotoCouverture")}">★</button>`
+          : "";
       return `
         <div class="photo-vignette-form" data-index="${index}">
           ${contenu}
           <button type="button" class="photo-vignette-retirer" data-index="${index}" data-i18n-aria-label="formPhotoRetirer" aria-label="${t(currentLanguage, "formPhotoRetirer")}">✕</button>
+          ${badgeCouverture}
         </div>
       `;
     })
@@ -650,6 +660,17 @@ function ajouterPhotoFormulaire(fichier) {
 function retirerPhotoFormulaire(index) {
   const [retiree] = photosFormulaire.splice(index, 1);
   if (retiree && retiree.urlApercu) URL.revokeObjectURL(retiree.urlApercu);
+  rendrePhotosGalerie();
+}
+
+// Fait passer la photo à l'index donné en tête de tableau -- devient
+// photoIds[0] à l'enregistrement (resoudrePhotosPourEnvoi() préserve
+// l'ordre de photosFormulaire), donc la vignette utilisée partout
+// ailleurs dans l'appli (retour utilisateur, 2026-08-26).
+function definirPhotoCouverture(index) {
+  if (index === 0) return;
+  const [photo] = photosFormulaire.splice(index, 1);
+  photosFormulaire.unshift(photo);
   rendrePhotosGalerie();
 }
 
@@ -1153,6 +1174,11 @@ function initFormulaire() {
     const boutonRetirer = evenement.target.closest(".photo-vignette-retirer");
     if (boutonRetirer) {
       retirerPhotoFormulaire(Number(boutonRetirer.dataset.index));
+      return;
+    }
+    const boutonCouverture = evenement.target.closest(".photo-vignette-couverture");
+    if (boutonCouverture) {
+      definirPhotoCouverture(Number(boutonCouverture.dataset.index));
       return;
     }
     if (evenement.target.closest("#photo-ajouter")) {

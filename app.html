@@ -326,6 +326,18 @@
     background: rgba(0,0,0,0.6); color: #fff; border: none; display: flex; align-items: center;
     justify-content: center; cursor: pointer; padding: 0; line-height: 0;
   }
+  /* Choix de la vignette de l'entrée (retour utilisateur, 2026-08-26) --
+     photoIds[0] sert de vignette partout (Liste, Carte, carte souvenir) ;
+     ce badge (affiché seulement s'il y a plus d'une photo) permet de
+     désigner laquelle sans avoir à tout retirer/réajouter. Coin opposé
+     au bouton "retirer" pour ne jamais se chevaucher sur une vignette
+     de 64px. */
+  .photo-vignette-couverture {
+    position: absolute; bottom: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+    background: rgba(0,0,0,0.6); color: rgba(255,255,255,0.75); border: none; font-size: 11px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; line-height: 0;
+  }
+  .photo-vignette-couverture.active { background: var(--gold); color: #1a1206; }
   .photo-ajouter {
     width: 64px; height: 64px; border-radius: 10px; background: var(--surface-2);
     border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center;
