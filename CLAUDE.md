@@ -1654,3 +1654,38 @@ cluster au zoom 19 (sous le seuil) ; deux pins à ~5m d'écart
 apparaissent bien comme 2 marqueurs distincts au même zoom (au-dessus
 du seuil, comportement impossible avant ce correctif avec le rayon par
 défaut de ~16m).
+
+## Icône appareil photo + réinitialisation des données (retour utilisateur, 2026-08-26)
+
+Deux demandes distinctes :
+
+1. **Icône du bouton "prendre une photo"** -- affichait un simple "+"
+   texte (`#photo-ajouter`), contrairement au bouton galerie déjà à
+   côté (`ICONE_GALERIE`, une vraie icône). `ICONE_APPAREIL_PHOTO`
+   ajoutée (`app.js`), même gabarit/style que `ICONE_GALERIE`
+   (`stroke="currentColor"`, hérite `color: var(--text-muted)` de
+   `.photo-ajouter` -- aucun changement CSS nécessaire).
+2. **Réinitialisation des données** -- même fonctionnalité que
+   FletchGames (cohérence entre projets frères, voir le CLAUDE.md
+   global). `reinitialiserDonnees()` (`storage.js`) : vide les stores
+   `"entrees"` ET `"photos"` dans une seule transaction atomique.
+   Bouton dans `aide.html` (section "Tes données restent sur ton
+   téléphone", à côté d'export/import) + overlay de confirmation
+   maison (`.confirm-overlay`/`.confirm-box`, dupliqué depuis le
+   patron déjà utilisé dans `app.html` -- `aide.html` n'a pas ce CSS
+   partagé) plutôt que `window.confirm()`, même raison que
+   FletchGames : le titre du dialogue natif affiche l'origine brute au
+   lieu de "FletchLog". Message de confirmation rappelle explicitement
+   d'exporter avant si besoin (cohérent avec tout le travail de cette
+   session sur les risques de perte de données).
+
+**Vérifié réellement** (Selenium) : bouton photo contient bien un
+`<svg>` (plus le texte "+"). Flux de réinitialisation complet -- une
+entrée avec photo créée, overlay masqué par défaut, affiché au clic,
+annulation ne supprime rien (compte d'entrées inchangé), confirmation
+supprime bien tout (`listerEntrees()` retourne 0 entrée après) --
+**store `"photos"` vérifié séparément** (compte direct via
+`indexedDB.open("fletchlog", 1)` plutôt que par un helper de haut
+niveau, aucun n'existant pour ça) : passe de 1 à 0 après
+réinitialisation, confirmant que les deux stores sont bien vidés par
+la transaction atomique, pas seulement les entrées.

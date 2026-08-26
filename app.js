@@ -24,6 +24,12 @@ const ICONE_CHEVRON =
 // pour hériter la couleur du bouton (.photo-ajouter, même gris que le "+").
 const ICONE_GALERIE =
   '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5-9 9"/></svg>';
+// Bouton "prendre une photo" (retour utilisateur, 2026-08-26 --
+// remplace le simple "+" texte) -- même style que ICONE_GALERIE
+// (stroke="currentColor", même gabarit), boîtier + bosse de viseur +
+// objectif, silhouette d'appareil photo classique.
+const ICONE_APPAREIL_PHOTO =
+  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-2h7l1 2H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 const ICONE_PLACEHOLDER_PHOTO =
   '<svg width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="#0f1216" stroke-width="1.7"/><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="#0f1216" stroke-width="1.7"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><g transform="translate(12,10.94) scale(0.268) translate(-44.843,-39.079)"><path stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#0f1216" d="M 62.853 39.187 L 34.723 39.187 L 25.508 29.226 L 51.190 29.365 L 56.032 39.187 L 51.190 49.009 L 25.508 49.148 L 34.723 39.187 M 39.680 29.831 L 46.066 39.187 L 39.680 48.543" style="transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0, 1, -1, 0, 0.662491, -0.108498)"/><path stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="var(--text-faint)" d="M 62.853 39.187 L 34.723 39.187 L 25.508 29.226 L 51.190 29.365 L 56.032 39.187 L 51.190 49.009 L 25.508 49.148 L 34.723 39.187 M 39.680 29.831 L 46.066 39.187 L 39.680 48.543" style="transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0, 1, -1, 0, 0.662491, -0.108498)"/></g><circle cx="12" cy="15.94" r="0.5625" fill="var(--text-faint)"/></svg>';
 
@@ -702,7 +708,7 @@ function rendrePhotosGalerie() {
   // deux <input type="file"> dans app.html pour le pourquoi.
   const boutonsAjouter =
     photosFormulaire.length < MAX_PHOTOS
-      ? `<button type="button" class="photo-ajouter" id="photo-ajouter" data-i18n-aria-label="formPhotoAppareil" aria-label="${t(currentLanguage, "formPhotoAppareil")}">+</button>
+      ? `<button type="button" class="photo-ajouter" id="photo-ajouter" data-i18n-aria-label="formPhotoAppareil" aria-label="${t(currentLanguage, "formPhotoAppareil")}">${ICONE_APPAREIL_PHOTO}</button>
          <button type="button" class="photo-ajouter" id="photo-ajouter-galerie" data-i18n-aria-label="formPhotoGalerie" aria-label="${t(currentLanguage, "formPhotoGalerie")}">${ICONE_GALERIE}</button>`
       : "";
   galerie.innerHTML = vignettes + boutonsAjouter;

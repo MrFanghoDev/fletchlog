@@ -267,3 +267,21 @@ function restaurerPhoto(photoId, blob) {
       })
   );
 }
+
+// ---- Réinitialisation complète (retour utilisateur, 2026-08-26 --
+// même fonctionnalité que FletchGames) -----------------------------
+// Vide les deux stores dans une seule transaction atomique -- jamais
+// l'un vidé et l'autre pas en cas d'erreur à mi-chemin.
+
+function reinitialiserDonnees() {
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction(["entrees", "photos"], "readwrite");
+        transaction.objectStore("entrees").clear();
+        transaction.objectStore("photos").clear();
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      })
+  );
+}

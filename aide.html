@@ -43,6 +43,27 @@
   .sauvegarde-statut.erreur { color: var(--red); }
   article.aide-section ol { line-height: 1.8; font-size: 0.92rem; padding-left: 1.3rem; }
 
+  /* Réinitialisation des données (retour utilisateur, 2026-08-26 --
+     même fonctionnalité que FletchGames). Séparée visuellement des
+     actions d'export/import (marge au-dessus) -- action destructrice,
+     ne doit pas se fondre avec les actions de routine juste au-dessus. */
+  .bouton-danger {
+    font-family: var(--font-ui); font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    padding: 0.6rem 1rem; border-radius: 8px; background: transparent; color: var(--red);
+    border: 1px solid var(--red);
+  }
+  .reinitialiser-actions { margin-top: 1.5rem; }
+
+  /* Confirmation maison (pas window.confirm() -- son titre affiche
+     l'origine brute plutôt que "FletchLog", même principe déjà retenu
+     côté FletchGames). */
+  .confirm-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .confirm-overlay[hidden] { display: none; }
+  .confirm-box { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; max-width: 340px; width: 100%; display: flex; flex-direction: column; gap: 16px; }
+  .confirm-box p { margin: 0; font-size: 14px; color: var(--text); line-height: 1.5; }
+  .confirm-actions { display: flex; gap: 10px; }
+  .confirm-actions button { flex: 1; }
+
   footer { margin-top: 3rem; color: var(--text-faint); font-size: 0.78rem; text-align: center; }
   footer a { color: var(--text-muted); }
 </style>
@@ -120,6 +141,9 @@
         <input type="file" id="champ-import" accept=".zip,application/zip" hidden>
       </div>
       <p class="sauvegarde-statut" id="sauvegarde-statut" hidden></p>
+      <div class="reinitialiser-actions">
+        <button type="button" class="bouton-danger" id="bouton-reinitialiser" data-i18n="reinitialiserBouton">Réinitialiser mes données</button>
+      </div>
     </article>
 
     <footer>
@@ -128,6 +152,16 @@
       · <a href="https://github.com/MrFanghoDev/fletchlog/blob/master/LICENSE" data-i18n="siteFooterLicense" target="_blank" rel="noopener">Licence GPLv3</a>
       · <span id="footer-version"></span>
     </footer>
+  </div>
+
+  <div class="confirm-overlay" id="confirm-overlay" hidden>
+    <div class="confirm-box">
+      <p id="confirm-message" data-i18n="reinitialiserConfirmation">Cette action supprimera définitivement toutes tes entrées et photos de ce téléphone, sans possibilité d'annuler. Pense à exporter ton carnet avant si tu veux le garder. Continuer ?</p>
+      <div class="confirm-actions">
+        <button type="button" class="bouton-secondaire" id="confirm-annuler" data-i18n="formAnnuler">Annuler</button>
+        <button type="button" class="bouton-danger" id="confirm-valider" data-i18n="reinitialiserBouton">Réinitialiser mes données</button>
+      </div>
+    </div>
   </div>
 
 <script src="i18n.js"></script>
@@ -200,6 +234,27 @@
       })
       .finally(() => {
         evenement.target.value = "";
+      });
+  });
+
+  // Réinitialisation des données (retour utilisateur, 2026-08-26 --
+  // même fonctionnalité que FletchGames) -- confirmation maison plutôt
+  // que window.confirm(), voir le commentaire CSS de .confirm-overlay.
+  document.getElementById("bouton-reinitialiser").addEventListener("click", () => {
+    document.getElementById("confirm-overlay").hidden = false;
+  });
+  document.getElementById("confirm-annuler").addEventListener("click", () => {
+    document.getElementById("confirm-overlay").hidden = true;
+  });
+  document.getElementById("confirm-valider").addEventListener("click", () => {
+    document.getElementById("confirm-overlay").hidden = true;
+    reinitialiserDonnees()
+      .then(() => {
+        afficherStatutSauvegarde("reinitialiserReussi");
+      })
+      .catch((erreur) => {
+        console.warn("Échec de la réinitialisation :", erreur);
+        afficherStatutSauvegarde("reinitialiserErreur", null, true);
       });
   });
 </script>

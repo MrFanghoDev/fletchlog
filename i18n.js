@@ -145,6 +145,10 @@ const TRANSLATIONS = {
     importEnCours: "Import en cours...",
     importErreur: "Échec de l'import -- fichier invalide ou corrompu.",
     importResultat: "{n} entrée(s) importée(s), {m} déjà présente(s) (ignorée(s)).",
+    reinitialiserBouton: "Réinitialiser mes données",
+    reinitialiserConfirmation: "Cette action supprimera définitivement toutes tes entrées et photos de ce téléphone, sans possibilité d'annuler. Pense à exporter ton carnet avant si tu veux le garder. Continuer ?",
+    reinitialiserReussi: "Toutes tes données ont été supprimées.",
+    reinitialiserErreur: "Échec de la réinitialisation.",
   },
   en: {
     siteFooterCredit: "Built for the Archers Libres de Fontaine-le-Port ·",
@@ -287,6 +291,10 @@ const TRANSLATIONS = {
     importEnCours: "Importing...",
     importErreur: "Import failed -- invalid or corrupted file.",
     importResultat: "{n} entries imported, {m} already present (skipped).",
+    reinitialiserBouton: "Reset my data",
+    reinitialiserConfirmation: "This will permanently delete all your entries and photos from this phone, with no way to undo it. Consider exporting your log first if you want to keep it. Continue?",
+    reinitialiserReussi: "All your data has been deleted.",
+    reinitialiserErreur: "Reset failed.",
   },
 };
 
