@@ -1273,3 +1273,64 @@ confirmé par un rendu réel** -- première chose à vérifier à la
 prochaine occasion si l'environnement redevient stable, notamment sur
 une vraie photo très large ou très haute (cas où le bornage entre en
 jeu) et sur le contraste du texte superposé sur une photo claire.
+
+## Trois retouches carte souvenir (retour utilisateur, 2026-08-26)
+
+Environnement de test redevenu stable ce jour-là -- vérifié réellement
+cette fois (Selenium), contrairement aux deux sections précédentes.
+
+1. **"FletchLog" écrit deux fois** -- la marque en haut à gauche
+   (logo+texte) ET le pied de page textuel répétaient le même mot.
+   Le pied de page textuel est supprimé (`_dessinerSouvenir()`) --
+   `yCurseur` démarre maintenant comme simple marge basse (`hauteur -
+   40`) plutôt que comme ligne de base d'un texte "FletchLog" dessiné,
+   le reste de l'empilage bas→haut est inchangé (voir les sections
+   précédentes sur pourquoi cet empilage part toujours d'une
+   extrémité fixe).
+2. **Sous-titre redondant avec le titre quand le filtre est une
+   période** -- si aucun lieu ni discipline uniques ne permettent de
+   titrer la carte, le titre devient "Du X au Y" (le filtre de
+   période), et le sous-titre affichait la MÊME période (calculée
+   séparément à partir des dates réelles des entrées, qui coïncident
+   ou sont incluses dans le filtre). Corrigé : `_titreEtSousTitre()`
+   retourne un flag interne `titreEstPeriode` ; quand vrai, le
+   sous-titre devient `_listeLieux(entrees)` (nouvelle fonction --
+   liste des lieux distincts, "A, B, C" jusqu'à 3, sinon "A, B et N
+   autres" via la nouvelle clé i18n `souvenirLieuxEtAutres") plutôt
+   que la période. `titreEstPeriode` implique toujours au moins 2
+   lieux distincts (sinon le titre aurait pris la branche "un seul
+   lieu" avant celle-ci), pas besoin de re-garder ce cas.
+3. **Discipline(s) et tags ajoutés** -- deux nouvelles lignes
+   compactes, même style que la météo existante :
+   - `_statsDisciplines(entrees)` : répartition par discipline
+     (`"Indoor ×3"`, comme la météo) -- **retourne volontairement un
+     tableau vide si une seule discipline distincte existe** (déjà le
+     titre dans ce cas, la répéter serait redondant, même logique que
+     le point 2 mais tranchée au niveau de la fonction plutôt qu'un
+     flag séparé).
+   - `_statsTags(entrees)` : labels les plus fréquents, préfixés `#`
+     (`"#amis #competition"`), plafonnés à 5 -- pas de troncature
+     `_decouperTexte()` comme le titre, un excès reste juste hors-cadre
+     plutôt que d'ajouter un "+N" comme les vignettes (accepté comme
+     compromis, cas rare avec le plafond à 5).
+   - Ordre dans l'empilage bas→haut (donc visuellement, de haut en
+     bas) : vignettes, tags, disciplines, météo, compteur, sous-titre,
+     titre -- les "petites stats" groupées ensemble entre les
+     vignettes et le bloc titre/compteur.
+   - **`SOUVENIR_RATIO_MAX` resserré de 1.5 à 1.35`** en conséquence
+     -- ces 2 lignes supplémentaires alourdissent le pire cas
+     d'empilement (~700px avec tout présent : titre 2 lignes +
+     sous-titre + météo + disciplines + tags + vignettes), 1.35 garde
+     ~100px de marge dessus (hauteur mini 800px à largeur 1080 fixe).
+
+**Vérifié réellement** (Selenium, 3 sorties avec lieux/disciplines/tags
+distincts + une photo, filtre de période englobant les 3) : un seul
+"FletchLog" affiché (en-tête), sous-titre = liste des lieux (pas la
+période répétée), ligne disciplines et ligne tags toutes deux
+correctes et lisibles, aucun chevauchement -- capture plein résolution
+inspectée directement. **Leçon sur l'instabilité de l'environnement
+elle-même** : la capture avait été sauvegardée avec succès dans le
+scratchpad (confirmé par `ls`) mais a disparu avant d'avoir pu être
+relue -- contournée en copiant le fichier hors du scratchpad (dans le
+répertoire de travail du dépôt, sous un nom préfixé `.`, supprimé
+juste après lecture) plutôt que de re-régénérer la capture en boucle.

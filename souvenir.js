@@ -28,13 +28,15 @@ const SOUVENIR_LARGEUR_DEFAUT = 1080;
 const SOUVENIR_HAUTEUR_DEFAUT = 1350;
 const SOUVENIR_MARGE = 64;
 const SOUVENIR_RATIO_MIN = 0.55; // proche de 9:16, portrait téléphone habituel
-// 1.5 (3:2) plutôt que 16:9 (1.78) -- avec titre sur 2 lignes +
-// sous-titre + météo + bande de vignettes, le bloc de texte empilé
-// peut atteindre ~600px de haut ; une carte trop basse le ferait
-// déborder au-dessus du cadre. 1.5 laisse une marge de sécurité
-// (hauteur mini 720px à largeur 1080 fixe) sans trop s'écarter du
-// ratio réel d'une photo paysage.
-const SOUVENIR_RATIO_MAX = 1.5;
+// Revu à la baisse (1.5 -> 1.35) en ajoutant les lignes tags/disciplines
+// (retour utilisateur, 2026-08-26) : dans le pire cas (titre sur 2
+// lignes + sous-titre + météo + disciplines + tags + bande de
+// vignettes, tout présent en même temps), le bloc de texte empilé
+// depuis le bas peut atteindre ~700px de haut -- une carte trop basse
+// ferait déborder le haut du titre. 1.35 (hauteur mini 800px à largeur
+// 1080 fixe) garde ~100px de marge sur ce pire cas, au prix de
+// s'écarter un peu plus du ratio réel d'une photo très large (16:9).
+const SOUVENIR_RATIO_MAX = 1.35;
 
 // Bande de vignettes des sorties supplémentaires -- une seule rangée,
 // jamais plus (pas de défilement possible sur une image statique) :
@@ -153,6 +155,14 @@ function _dessinerBadgePlus(ctx, x, y, taille, rayon, n) {
   ctx.textBaseline = "alphabetic";
 }
 
+// Liste des lieux distincts, format court ("A, B" ou "A, B et N
+// autres" au-delà de 3) -- retour utilisateur, 2026-08-26.
+function _listeLieux(entrees) {
+  const lieux = [...new Set(entrees.map((e) => e.lieu).filter(Boolean))];
+  if (lieux.length <= 3) return lieux.join(", ");
+  return tf(currentLanguage, "souvenirLieuxEtAutres", { lieux: lieux.slice(0, 2).join(", "), n: lieux.length - 2 });
+}
+
 function _titreEtSousTitre(entrees) {
   const lieux = new Set(entrees.map((e) => e.lieu));
   const disciplines = new Set(entrees.map((e) => e.discipline).filter(Boolean));
@@ -160,6 +170,7 @@ function _titreEtSousTitre(entrees) {
   const dateFin = document.getElementById("filtre-date-fin").value;
 
   let titre;
+  let titreEstPeriode = false;
   if (lieux.size === 1) titre = [...lieux][0];
   else if (disciplines.size === 1) titre = [...disciplines][0];
   else if (dateDebut || dateFin) {
@@ -167,17 +178,28 @@ function _titreEtSousTitre(entrees) {
       debut: dateDebut ? formaterDate(dateDebut) : "…",
       fin: dateFin ? formaterDate(dateFin) : "…",
     });
+    titreEstPeriode = true;
   } else {
     titre = tf(currentLanguage, entrees.length === 1 ? "souvenirSortieSing" : "souvenirSortiePlur", { n: entrees.length });
   }
 
-  const dates = entrees.map((e) => e.date).filter(Boolean).sort();
-  const sousTitre =
-    dates.length && dates[0] !== dates[dates.length - 1]
-      ? tf(currentLanguage, "souvenirPeriode", { debut: formaterDate(dates[0]), fin: formaterDate(dates[dates.length - 1]) })
-      : dates.length
-        ? formaterDate(dates[0])
-        : "";
+  // Quand le titre affiche déjà la période, le sous-titre ne doit pas
+  // répéter la même information (retour utilisateur, 2026-08-26) -- les
+  // lieux concernés sont plus utiles ici (titreEstPeriode implique
+  // toujours au moins 2 lieux distincts, sinon le titre aurait pris la
+  // branche "un seul lieu" plus haut).
+  let sousTitre;
+  if (titreEstPeriode) {
+    sousTitre = _listeLieux(entrees);
+  } else {
+    const dates = entrees.map((e) => e.date).filter(Boolean).sort();
+    sousTitre =
+      dates.length && dates[0] !== dates[dates.length - 1]
+        ? tf(currentLanguage, "souvenirPeriode", { debut: formaterDate(dates[0]), fin: formaterDate(dates[dates.length - 1]) })
+        : dates.length
+          ? formaterDate(dates[0])
+          : "";
+  }
 
   return { titre, sousTitre };
 }
@@ -188,6 +210,34 @@ function _statsMeteo(entrees) {
     if (e.meteo && e.meteo !== "aucune") comptes[e.meteo] = (comptes[e.meteo] || 0) + 1;
   }
   return Object.entries(comptes).sort((a, b) => b[1] - a[1]);
+}
+
+// Répartition des disciplines ("type de parcours", retour utilisateur,
+// 2026-08-26) -- volontairement PAS calculée/affichée quand une seule
+// discipline distincte existe : dans ce cas elle est déjà le titre de
+// la carte (voir _titreEtSousTitre()), la répéter ici serait redondant.
+function _statsDisciplines(entrees) {
+  const comptes = {};
+  for (const e of entrees) {
+    if (e.discipline) comptes[e.discipline] = (comptes[e.discipline] || 0) + 1;
+  }
+  const stats = Object.entries(comptes).sort((a, b) => b[1] - a[1]);
+  return stats.length > 1 ? stats : [];
+}
+
+// Tags les plus fréquents (retour utilisateur, 2026-08-26) -- plafonné
+// à 5 pour rester sur une seule ligne (pas de découpe/troncature ici,
+// contrairement au titre : un excès reste juste hors-cadre plutôt que
+// de complexifier avec un "+N" comme les vignettes).
+function _statsTags(entrees) {
+  const comptes = {};
+  for (const e of entrees) {
+    for (const label of e.labels || []) comptes[label] = (comptes[label] || 0) + 1;
+  }
+  return Object.entries(comptes)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([label]) => label);
 }
 
 // Découpe un texte en lignes tenant dans `largeurMax`, sans jamais
@@ -285,23 +335,22 @@ async function _dessinerSouvenir(entrees) {
 
   // Empilage du BAS vers le HAUT (yCurseur descend d'un pas fixe et
   // connu avant chaque élément) -- contrairement à un empilage du haut
-  // vers le bas, la position du pied de page et de la ligne météo ne
-  // dépend alors JAMAIS de la hauteur du titre/sous-titre au-dessus
-  // (un titre qui tient sur une seule ligne vs deux ne peut plus faire
-  // remonter le contenu du bas jusqu'à chevaucher un élément suivant --
-  // bug réel rencontré en testant : "FletchLog" en pied de page se
-  // dessinait quasiment à la même hauteur que "N sorties" au-dessus).
+  // vers le bas, la position des éléments du bas ne dépend alors
+  // JAMAIS de la hauteur du titre/sous-titre au-dessus (un titre qui
+  // tient sur une seule ligne vs deux ne peut plus faire remonter le
+  // contenu du bas jusqu'à chevaucher un élément suivant -- bug réel
+  // rencontré en testant une version antérieure). yCurseur démarre
+  // comme simple marge basse, plus comme ligne de base d'un pied de
+  // page textuel -- le mot "FletchLog" n'apparaît plus qu'une fois,
+  // dans la marque en haut à gauche (retour utilisateur, 2026-08-26 :
+  // le répéter en bas était redondant).
   let yCurseur = hauteur - 40;
-  ctx.font = "22px system-ui, -apple-system, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
-  ctx.fillText("FletchLog", SOUVENIR_MARGE, yCurseur);
 
   // Bande de vignettes des sorties supplémentaires (retour utilisateur,
-  // 2026-08-25) -- juste au-dessus du pied de page. yCurseur passe ici
-  // de "ligne de base de texte" à "bas du bloc réservé" : les éléments
-  // suivants (météo, compteur...) repartent de cette nouvelle position
-  // comme si c'était le pied de page, la logique d'empilage bas->haut
-  // ne change pas au-delà de ce bloc.
+  // 2026-08-25) -- juste au-dessus de la marge basse. yCurseur passe
+  // ici de "marge basse" à "bas du bloc réservé" : les éléments
+  // suivants (météo, compteur...) repartent de cette nouvelle position,
+  // la logique d'empilage bas->haut ne change pas au-delà de ce bloc.
   if (vignettesChargees.length) {
     const yHautVignettes = yCurseur - SOUVENIR_VIGNETTE_TAILLE - 34;
     let x = SOUVENIR_MARGE;
@@ -313,6 +362,38 @@ async function _dessinerSouvenir(entrees) {
       x += SOUVENIR_VIGNETTE_TAILLE + SOUVENIR_VIGNETTE_ECART;
     });
     yCurseur = yHautVignettes - 30;
+  }
+
+  // Tags les plus fréquents (retour utilisateur, 2026-08-26) --
+  // préfixés "#" pour se lire comme des tags plutôt que du texte
+  // normal, couleur plus discrète que les stats (météo/discipline).
+  const tags = _statsTags(entrees);
+  if (tags.length) {
+    yCurseur -= 46;
+    ctx.font = "28px system-ui, -apple-system, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.fillText(
+      tags.map((t) => `#${t}`).join("  "),
+      SOUVENIR_MARGE,
+      yCurseur
+    );
+  }
+
+  // Répartition des disciplines ("type de parcours", retour
+  // utilisateur, 2026-08-26) -- même style que la météo (compteurs sur
+  // une ligne), voir _statsDisciplines() pour pourquoi elle est vide
+  // quand une seule discipline distincte existe.
+  const disciplinesStats = _statsDisciplines(entrees);
+  if (disciplinesStats.length) {
+    yCurseur -= 56;
+    ctx.font = "34px system-ui, -apple-system, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    let x = SOUVENIR_MARGE;
+    for (const [discipline, n] of disciplinesStats) {
+      const texte = `${discipline} ×${n}`;
+      ctx.fillText(texte, x, yCurseur);
+      x += ctx.measureText(texte).width + 36;
+    }
   }
 
   const meteo = _statsMeteo(entrees);
