@@ -1560,3 +1560,54 @@ résultante dans la Liste correspond à la couleur source du HEIC
 passes de recompression JPEG/conversion YCbCr→RGB) -- confirme que
 l'image est vraiment décodée et enregistrée, pas juste que l'erreur
 est évitée.
+
+## Repères des autres entrées sur le picker de position (retour utilisateur, 2026-08-26)
+
+Demandé : lors du choix manuel d'une position sur la carte (picker,
+issue #15), voir les positions des autres entrées déjà enregistrées --
+utile notamment pour placer une cible de parcours 3D par rapport aux
+cibles déjà notées (voir aussi la section "'Sortie' renommé en
+'Entrée'" plus haut, même cas d'usage à l'origine).
+
+`carteMapPickerReperes` (`L.layerGroup()`, ajoutée à `carteMapPicker`
+à sa création) -- reconstruite à chaque ouverture du picker
+(`rafraichirReperesPicker()`, appelée depuis `ouvrirPickerPosition()`)
+plutôt qu'une fois pour toutes : les entrées existantes ou
+`idEnEdition` peuvent avoir changé depuis la dernière fois. Montre
+**toutes** les entrées avec position (`entreesActuelles`, pas
+`entreesFiltrees()`) -- le picker n'a pas son propre état de filtre,
+et l'intérêt est d'avoir tout le contexte spatial disponible, pas
+seulement ce que la vue Liste/Carte affiche au même moment au travers
+de ses filtres actifs. L'entrée en cours d'édition (`idEnEdition`) est
+exclue -- sinon un repère se superposerait exactement à la mire pour
+une entrée déjà positionnée qu'on modifie.
+
+Même icône que la vue Carte principale (`ICONE_PIN_CARTE`) mais plus
+petite et atténuée (`.pin-carte-repere`, 20px + `opacity:0.7` contre
+28px pleine opacité) -- volontairement secondaire par rapport à la
+mire (`.picker-pin-centre`), qui reste le seul indicateur de "la
+position en cours de saisie". `.pin-carte svg { width:28px }` étant
+déjà fixé dans la classe de base, un simple `iconSize` différent sur
+`L.divIcon` ne suffisait pas à réduire le rendu -- il a fallu une
+règle CSS dédiée (`.pin-carte.pin-carte-repere svg`, deux classes sur
+le même élément pour battre la règle de base par spécificité).
+`bindPopup()` (titre ou repli sur le lieu) au tap, pour identifier
+quelle entrée chaque repère représente -- pas de réutilisation de
+`afficherApercuCarte()` (bâtie autour de la vue Carte principale et
+de ses propres marqueurs/couche de clustering), une simple popup
+Leaflet suffit ici.
+
+Pas de clustering sur cette couche (contrairement à
+`carteCouchePins`) -- volontairement plus léger, un nombre d'entrées
+avec position reste modeste pour un carnet personnel, pas besoin de
+la complexité du plugin pour ce cas d'usage secondaire.
+
+**Vérifié réellement** (Selenium, 3 entrées avec positions GPS
+distinctes injectées directement via `gpsLat`/`gpsLon` -- pas de vraie
+géolocalisation possible en headless) : en éditant la 3e, le picker
+affiche exactement 2 repères (`carteMapPickerReperes.getLayers().length
+=== 2`) -- ni l'entrée en cours d'édition, ni un repère en trop.
+Confirmé aussi visuellement par capture d'écran (dézoomée pour englober
+les 3 points) : les deux repères apparaissent nettement plus petits et
+atténués que la mire, positionnés correctement l'un par rapport à
+l'autre selon leurs coordonnées réelles.

@@ -102,6 +102,12 @@
   .pin-carte { display: flex; align-items: flex-end; justify-content: center; overflow: visible; cursor: pointer; }
   .pin-carte svg { width: 28px; height: 28px; display: block; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.35)); }
   .pin-carte.pin-carte-actif svg { width: 38px; height: 38px; }
+  /* Repères des autres entrées sur le picker de position (retour
+     utilisateur, 2026-08-26) -- plus petits et atténués que la vue
+     Carte principale : ils ne sont là que pour donner du contexte
+     spatial, la mire (.picker-pin-centre) reste le seul indicateur de
+     la position en cours de saisie. */
+  .pin-carte.pin-carte-repere svg { width: 20px; height: 20px; opacity: 0.7; }
   /* Clusters Leaflet.markercluster (retour utilisateur) -- recolorés
      sur la palette de l'appli plutôt que le vert/jaune/orange par
      défaut du plugin (voir MarkerCluster.Default.css). Un seul ton

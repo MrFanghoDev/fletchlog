@@ -908,6 +908,15 @@ function retirerPosition() {
 // principale peut ne jamais avoir été affichée quand on ouvre le
 // formulaire, pas de raison de forcer son initialisation ici.
 let carteMapPicker = null;
+// Repères des autres entrées déjà positionnées (retour utilisateur,
+// 2026-08-26 -- utile notamment pour placer une cible de parcours 3D
+// par rapport aux cibles déjà enregistrées). Couche séparée de
+// carteCouchePins (vue Carte principale) : ici, TOUTES les entrées
+// avec position, sans tenir compte des filtres actifs -- le picker
+// n'a pas son propre état de filtre, et le but est d'avoir tout le
+// contexte spatial disponible, pas seulement ce que la vue Liste/Carte
+// affiche au même moment.
+let carteMapPickerReperes = null;
 
 function ouvrirPickerPosition() {
   document.getElementById("picker-overlay").hidden = false;
@@ -921,10 +930,32 @@ function ouvrirPickerPosition() {
   if (!carteMapPicker) {
     carteMapPicker = L.map("picker-carte", { attributionControl: true }).setView(centre, zoom);
     ajouterCoucheTuilesOSM(carteMapPicker);
+    carteMapPickerReperes = L.layerGroup().addTo(carteMapPicker);
   } else {
     carteMapPicker.setView(centre, zoom);
   }
+  rafraichirReperesPicker();
   requestAnimationFrame(() => carteMapPicker.invalidateSize());
+}
+
+// Reconstruite à chaque ouverture (pas seulement à la création de la
+// carte) -- idEnEdition et les entrées existantes peuvent avoir changé
+// depuis la dernière fois. Icône identique à la vue Carte (ICONE_PIN_CARTE)
+// mais plus petite et atténuée (.pin-carte-repere) pour rester
+// secondaire par rapport à la mire, qui reste le seul indicateur de "la
+// position en cours de saisie".
+function rafraichirReperesPicker() {
+  carteMapPickerReperes.clearLayers();
+  entreesActuelles
+    .filter((e) => e.id !== idEnEdition && e.lat != null && e.lon != null)
+    .forEach((entree) => {
+      L.marker([entree.lat, entree.lon], {
+        icon: L.divIcon({ className: "pin-carte pin-carte-repere", html: ICONE_PIN_CARTE, iconSize: [20, 20], iconAnchor: [10, 20] }),
+        keyboard: false,
+      })
+        .bindPopup(_echapperTexte(entree.titre || entree.lieu))
+        .addTo(carteMapPickerReperes);
+    });
 }
 
 function fermerPickerPosition() {
