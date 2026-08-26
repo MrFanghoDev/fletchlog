@@ -392,6 +392,31 @@ function ajouterCoucheTuilesOSM(map) {
   );
 }
 
+// Rayon de regroupement des pins (retour utilisateur, 2026-08-26) --
+// maxClusterRadius de Leaflet.markercluster est TOUJOURS en pixels
+// écran, pas en distance réelle (voir plus haut, "Regroupement Liste +
+// clustering Carte") : à un même rayon en pixels, le nombre de mètres
+// réels dépend du zoom ET de la latitude (projection Web Mercator,
+// formule standard vérifiée -- 156543.03392 * cos(latitude) / 2^zoom,
+// https://gist.github.com/perrygeo/4478844). Au zoom maximum de la
+// carte (19, voir ajouterCoucheTuilesOSM()), le rayon par défaut
+// (80px) correspond à ~16m à la latitude de la France -- largement
+// plus que les 2m demandés. Calculé pour correspondre à ~1.9m (légère
+// marge sous les 2m) autour du centre courant de la carte à ce zoom
+// précis -- deux pins à 2m ou plus restent donc distincts. Aux zooms
+// inférieurs, comportement par défaut inchangé (80px) : la même
+// formule y donnerait un rayon proche de 0px (2m ne représentent
+// qu'une fraction de pixel dès qu'on dézoome), ce qui désactiverait le
+// regroupement partout -- pas l'effet recherché, seul le zoom max
+// doit se comporter différemment.
+function _rayonRegroupementPins(zoom) {
+  const RAYON_DEFAUT = 80;
+  if (!carteMap || zoom < carteMap.getMaxZoom()) return RAYON_DEFAUT;
+  const latitude = carteMap.getCenter().lat;
+  const metresParPixel = (156543.03392 * Math.cos((latitude * Math.PI) / 180)) / Math.pow(2, zoom);
+  return 1.9 / metresParPixel;
+}
+
 function initCarte() {
   if (carteMap) return;
   // zoomControl: false puis rajouté en bas à gauche -- la vue Carte
@@ -406,9 +431,10 @@ function initCarte() {
   // vendoré, voir app.html) plutôt qu'un simple layerGroup : plusieurs
   // sorties au même club/lieu se chevauchaient sur la carte, regroupées
   // maintenant sous un même marqueur avec un compteur, éclaté au zoom
-  // ou au tap. maxClusterRadius par défaut (80px) laissé tel quel --
-  // aucun retour d'usage réel encore pour le retoucher.
-  carteCouchePins = L.markerClusterGroup().addTo(carteMap);
+  // ou au tap. maxClusterRadius : fonction du zoom (retour utilisateur,
+  // 2026-08-26 -- voir _rayonRegroupementPins()) plutôt que le défaut
+  // fixe (80px) partout.
+  carteCouchePins = L.markerClusterGroup({ maxClusterRadius: _rayonRegroupementPins }).addTo(carteMap);
   new ControleLocaliser().addTo(carteMap);
 }
 

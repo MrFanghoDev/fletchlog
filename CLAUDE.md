@@ -1611,3 +1611,46 @@ Confirmé aussi visuellement par capture d'écran (dézoomée pour englober
 les 3 points) : les deux repères apparaissent nettement plus petits et
 atténués que la mire, positionnés correctement l'un par rapport à
 l'autre selon leurs coordonnées réelles.
+
+## Rayon de regroupement des pins paramétré en distance réelle au zoom max (retour utilisateur, 2026-08-26)
+
+Demandé : au zoom maximum de la carte, pouvoir distinguer deux pins
+espacés d'aussi peu que 2 mètres, plutôt qu'ils restent regroupés.
+
+**Diagnostic avant de coder** : `maxClusterRadius` de
+Leaflet.markercluster (voir la section "Regroupement Liste +
+clustering Carte" plus haut) est TOUJOURS en pixels écran, jamais en
+distance réelle -- déjà noté comme une limite du plugin à l'époque,
+sans avoir alors de cas d'usage réel pour la corriger. Calcul avant
+correctif : au zoom max (19) et à la latitude de la France (~46.6°),
+le rayon par défaut (80px) correspond à ~16 mètres réels (projection
+Web Mercator, formule standard vérifiée par recherche --
+`156543.03392 * cos(latitude) / 2^zoom`,
+[gist.github.com/perrygeo](https://gist.github.com/perrygeo/4478844))
+-- largement au-dessus des 2m souhaités, ce qui explique le
+regroupement gênant signalé.
+
+**`_rayonRegroupementPins(zoom)`** (`app.js`), passée comme
+`maxClusterRadius` (fonction plutôt que nombre fixe -- l'API de
+Leaflet.markercluster accepte les deux) à `L.markerClusterGroup()` :
+- Au zoom maximum de la carte (`carteMap.getMaxZoom()`, 19 ici) :
+  calcule le rayon en pixels correspondant à ~1.9m (légère marge sous
+  les 2m demandés) à la latitude du centre courant de la carte
+  (`carteMap.getCenter().lat` -- pas une latitude codée en dur, la
+  formule en dépend réellement).
+- À tout zoom inférieur : comportement par défaut inchangé (80px) --
+  **volontairement pas la même formule à tous les zooms** : à un zoom
+  très dézoomé, 2 mètres ne représentent qu'une fraction de pixel, un
+  rayon calculé de la même façon y désactiverait le regroupement
+  presque partout, ce qui n'est pas l'effet recherché (seul le zoom
+  max doit se comporter différemment, le reste du dézoomage garde son
+  utilité de décongestion visuelle).
+
+**Vérifié réellement** (Selenium, coordonnées calculées pour donner
+des écarts réels précis) : `_rayonRegroupementPins(19)` ≈ 9.26px
+(cohérent avec le calcul manuel), `_rayonRegroupementPins(10)` = 80
+(inchangé). Deux pins à ~1.5m d'écart restent regroupés en un seul
+cluster au zoom 19 (sous le seuil) ; deux pins à ~5m d'écart
+apparaissent bien comme 2 marqueurs distincts au même zoom (au-dessus
+du seuil, comportement impossible avant ce correctif avec le rayon par
+défaut de ~16m).
