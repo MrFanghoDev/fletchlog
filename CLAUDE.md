@@ -1334,3 +1334,97 @@ scratchpad (confirmé par `ls`) mais a disparu avant d'avoir pu être
 relue -- contournée en copiant le fichier hors du scratchpad (dans le
 répertoire de travail du dépôt, sous un nom préfixé `.`, supprimé
 juste après lecture) plutôt que de re-régénérer la capture en boucle.
+
+## Sélection manuelle des photos + mise à jour de l'aide (retour utilisateur, 2026-08-26)
+
+Deux demandes distinctes :
+
+1. **Aide pas à jour** -- vérifié en relisant `aide.html` (pas supposé) :
+   ne mentionnait ni le filtre de période, ni la carte souvenir, ni le
+   bouton d'export rapide de la barre du bas. Complété : `aideS2ListeText`
+   mentionne le filtre de période, nouvelle sous-section "Carte souvenir"
+   (`aideS2SouvenirTitle`/`Text`) dans `aideS2`, `aideS3Text` mentionne le
+   bouton d'export rapide en plus de celui de la page Aide.
+2. **Choisir quelles photos illustrent la carte souvenir** -- avant :
+   toujours la première sortie (photo) selon le tri courant, aucun
+   moyen d'exclure une sortie précise ou d'en choisir une autre.
+   Question posée explicitement (réordonner les photos d'une sortie
+   vs. sélection propre à la carte) : **sélection propre à la carte**
+   retenue -- pas d'effet de bord sur les entrées elles-mêmes, couvre
+   vedette ET vignettes en un seul geste, pas besoin de construire un
+   glisser-déposer générique.
+
+**Écran de sélection** (`#souvenir-selection`, nouvel écran dans
+`.souvenir-overlay`) : affiché entre le clic sur 🖼️ et le rendu de la
+carte, seulement s'il y a au moins une sortie filtrée avec photo
+(sinon carte générée directement, comme avant -- rien à choisir). Une
+grille de vignettes (une par sortie avec photo, `photoIds[0]`, cover
+recadré comme les vignettes du reste de l'appli) : taper l'image
+bascule inclus/exclu (opacité réduite si exclue) ; taper l'étoile ★
+en haut à droite désigne la vedette explicitement (réinclut aussi la
+sortie si elle était exclue -- un choix explicite de vedette prime
+sur une exclusion tacite). "Générer la carte" déclenche le rendu.
+
+**Point de conception important** : `selectionPhotos` (`{idsExclus,
+idVedette}`, nouveau 2e paramètre de `_dessinerSouvenir()`) restreint
+UNIQUEMENT quelles sorties peuvent illustrer la carte -- le titre, le
+sous-titre, le compteur "N sorties", la météo, les disciplines et les
+tags continuent de porter sur `entrees` en entier (toutes les sorties
+filtrées), jamais sur le sous-ensemble illustré. Exclure la photo
+d'une sortie ne doit jamais la faire "disparaître" des statistiques
+de la carte -- seulement de son illustration. `_entreeVedette()` et
+`_photosSupplementaires()` reçoivent désormais `entreesIllustration`
+(le sous-ensemble filtré par `idsExclus`), calculé séparément de
+`entrees` (le jeu complet) dans `_dessinerSouvenir()`.
+
+`_entreeVedette(entrees, idVedetteManuel)` : la vedette manuelle
+l'emporte si elle a encore une photo disponible (pas exclue) dans le
+sous-ensemble reçu, sinon repli sur la première selon le tri comme
+avant l'ajout de la sélection manuelle -- comportement par défaut
+inchangé si l'utilisateur ne touche à rien dans l'écran de sélection.
+
+**Vérifié réellement** (Selenium, 3 sorties avec photos de couleurs
+distinctes à des dates différentes) : écran de sélection affiché avec
+3 vignettes, vedette par défaut = la plus récente (comme avant),
+exclusion de la vedette par défaut -> bascule automatique sur la
+suivante selon le tri, choix manuel d'une 3e sortie (jamais exclue,
+pas la plus récente) -> devient bien la vedette prise en compte,
+sortie exclue toujours exclue après un choix de vedette sur une autre
+sortie (pas de réinclusion accidentelle), carte finale generée avec
+la bonne vedette et la bonne bande de vignettes (sortie exclue
+totalement absente), "N sorties" resté correct malgré l'exclusion --
+capture plein résolution inspectée directement.
+
+## "Sortie" renommé en "Entrée" (retour utilisateur, 2026-08-26)
+
+Signalé : le mot "sortie" (utilisé partout dans l'UI jusqu'ici) ne
+correspond pas forcément à ce que l'utilisateur veut y consigner --
+premier cas d'usage réel visé : la position GPS exacte d'UNE cible
+d'un parcours 3D, pas toute la séance. Clarifié explicitement avant de
+coder : **pas de changement de modèle de données ni de concept de
+"séance" regroupant plusieurs entrées** -- une entrée peut déjà être,
+au choix de l'utilisateur, une sortie entière ou une cible ponctuelle
+(les champs `cible`/`distance`/`commentaire` sont déjà en texte
+libre) ; seul le mot affiché posait problème.
+
+**Terme retenu : "Entrée"** (recommandé parmi 3 options proposées --
+"Entrée"/"Fiche"/"Repère") -- neutre, couvre aussi bien une sortie
+complète qu'une cible isolée, et correspond déjà au vocabulaire
+utilisé en interne dans le code/la base depuis le début du projet
+(`storage.js` : store `"entrees"`, `entreesActuelles`,
+`entreesFiltrees()`...) -- ce changement aligne enfin le vocabulaire
+UI sur celui déjà utilisé côté code, qui n'avait jamais suivi "sortie".
+
+Remplacement de toutes les chaînes UTILISATEUR (`i18n.js`, fr et en --
+"session"/"sessions" en anglais, remplacé par "entry"/"entries" --
+plus les textes de repli codés en dur dans `app.html`/`aide.html`,
+avant que `applyTranslations()` ne s'exécute) -- **pas** les noms de
+clés i18n existants (`souvenirSortieSing`/`Plur`, `souvenirBouton`...,
+identifiants internes, renommer aurait été un risque sans bénéfice
+visible) ni les commentaires de code (déjà "entrée"/"entrees" partout
+en interne, aucun conflit à résoudre). Parité fr/en des clés
+revérifiée par script (133 clés de chaque côté, aucune orpheline).
+
+**Vérifié réellement** (Selenium) : titre du bouton "+", message liste
+vide, titre du formulaire d'ajout, toast après enregistrement -- en
+français ET après bascule vers l'anglais.

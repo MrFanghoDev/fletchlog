@@ -71,15 +71,26 @@ function _chargerPhoto(url) {
   });
 }
 
-// Première sortie avec photo dans l'ordre de tri actuellement
-// sélectionné dans la vue Liste (retour utilisateur, 2026-08-25) --
-// respecte ce que l'utilisateur regarde déjà (trierEntrees(), définie
-// dans app.js) plutôt que d'imposer systématiquement la plus récente,
-// indépendamment du tri choisi. Photo déjà en cache (voir
+// Sorties avec une photo en cache, dans l'ordre de tri actuellement
+// sélectionné dans la vue Liste (respecte ce que l'utilisateur regarde
+// déjà, trierEntrees() définie dans app.js). Photo déjà en cache (voir
 // precharcherPhotos() dans app.js -- appelée au chargement, donc
 // disponible ici sans nouvelle lecture IndexedDB).
-function _entreeVedette(entrees) {
-  return trierEntrees(entrees).find((e) => (e.photoIds || []).length && photosCache[e.photoIds[0]]) || null;
+function _entreesAvecPhoto(entrees) {
+  return trierEntrees(entrees).filter((e) => (e.photoIds || []).length && photosCache[e.photoIds[0]]);
+}
+
+// Sortie vedette -- `idVedetteManuel` (choisi via l'écran de sélection,
+// retour utilisateur 2026-08-26) prioritaire si elle a encore une
+// photo disponible dans `entrees` (ex. pas exclue) ; sinon repli sur la
+// première selon le tri, comme avant l'ajout de la sélection manuelle.
+function _entreeVedette(entrees, idVedetteManuel) {
+  const avecPhoto = _entreesAvecPhoto(entrees);
+  if (idVedetteManuel) {
+    const choisie = avecPhoto.find((e) => e.id === idVedetteManuel);
+    if (choisie) return choisie;
+  }
+  return avecPhoto[0] || null;
 }
 
 // Sorties supplémentaires avec photo (retour utilisateur, 2026-08-25) --
@@ -88,8 +99,8 @@ function _entreeVedette(entrees) {
 // pourraient en théorie partager un id de photo si l'une a été
 // dupliquée via import/export, mais jamais le même id d'entrée).
 function _photosSupplementaires(entrees, entreeVedette) {
-  return trierEntrees(entrees)
-    .filter((e) => e.id !== entreeVedette?.id && (e.photoIds || []).length && photosCache[e.photoIds[0]])
+  return _entreesAvecPhoto(entrees)
+    .filter((e) => e.id !== entreeVedette?.id)
     .map((e) => photosCache[e.photoIds[0]]);
 }
 
@@ -270,13 +281,23 @@ function _decouperTexte(ctx, texte, largeurMax, maxLignes) {
   return lignes;
 }
 
-async function _dessinerSouvenir(entrees) {
+// `selectionPhotos` (retour utilisateur, 2026-08-26, écran de
+// sélection avant génération) restreint UNIQUEMENT quelles sorties
+// peuvent illustrer la carte (vedette + bande du bas) -- le titre, le
+// sous-titre, le compteur, la météo, les disciplines et les tags
+// portent toujours sur `entrees` en entier (toutes les sorties
+// filtrées, indépendamment des photos choisies) : exclure une photo
+// de l'illustration ne doit jamais faire "disparaître" la sortie
+// correspondante des statistiques de la carte.
+async function _dessinerSouvenir(entrees, selectionPhotos) {
+  const { idsExclus = new Set(), idVedette = null } = selectionPhotos || {};
   const canvas = document.getElementById("souvenir-canvas");
   const ctx = canvas.getContext("2d");
 
-  const entreeVedette = _entreeVedette(entrees);
+  const entreesIllustration = entrees.filter((e) => !idsExclus.has(e.id));
+  const entreeVedette = _entreeVedette(entreesIllustration, idVedette);
   const urlPhotoVedette = entreeVedette ? photosCache[entreeVedette.photoIds[0]] : null;
-  const urlsSupplementaires = _photosSupplementaires(entrees, entreeVedette);
+  const urlsSupplementaires = _photosSupplementaires(entreesIllustration, entreeVedette);
   const urlsVignettesAffichees = urlsSupplementaires.slice(0, SOUVENIR_VIGNETTE_MAX);
   const vignettesEnTrop = urlsSupplementaires.length - urlsVignettesAffichees.length;
 
@@ -373,7 +394,7 @@ async function _dessinerSouvenir(entrees) {
     ctx.font = "28px system-ui, -apple-system, sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.6)";
     ctx.fillText(
-      tags.map((t) => `#${t}`).join("  "),
+      tags.map((tag) => `#${tag}`).join("  "),
       SOUVENIR_MARGE,
       yCurseur
     );
@@ -454,27 +475,77 @@ function _canvasVersBlob(canvas) {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
 }
 
+// État de l'écran de sélection (retour utilisateur, 2026-08-26) --
+// remis à zéro à chaque ouverture (ouvrirSouvenir()), jamais persisté
+// d'un souvenir à l'autre.
+let _souvenirEntrees = [];
+let _souvenirIdsExclus = new Set();
+let _souvenirIdVedetteManuel = null;
+
 async function ouvrirSouvenir() {
   const entrees = entreesFiltrees();
   const overlay = document.getElementById("souvenir-overlay");
+  const selection = document.getElementById("souvenir-selection");
   const canvas = document.getElementById("souvenir-canvas");
   const vide = document.getElementById("souvenir-vide");
   const actions = document.getElementById("souvenir-actions");
 
   overlay.hidden = false;
+  selection.hidden = true;
+  canvas.hidden = true;
+  actions.hidden = true;
+  vide.hidden = true;
 
   if (entrees.length === 0) {
-    canvas.hidden = true;
     vide.hidden = false;
-    actions.hidden = true;
     return;
   }
 
-  vide.hidden = true;
-  canvas.hidden = false;
-  actions.hidden = false;
+  _souvenirEntrees = entrees;
+  _souvenirIdsExclus = new Set();
+  _souvenirIdVedetteManuel = null;
 
-  await _dessinerSouvenir(entrees);
+  const entreesAvecPhoto = _entreesAvecPhoto(entrees);
+  if (entreesAvecPhoto.length === 0) {
+    // Rien à choisir -- carte générée directement, sans photo (fond
+    // uni), comme avant l'écran de sélection.
+    await _genererEtAfficherSouvenir();
+    return;
+  }
+
+  _rendreSelectionPhotos();
+  selection.hidden = false;
+}
+
+// Reconstruit la grille de sélection à partir de l'état courant
+// (`_souvenirIdsExclus`/`_souvenirIdVedetteManuel`) -- appelée à
+// l'ouverture puis à chaque tap dans la grille.
+function _rendreSelectionPhotos() {
+  const grille = document.getElementById("souvenir-selection-grille");
+  const entreesAvecPhoto = _entreesAvecPhoto(_souvenirEntrees);
+  const eligibles = entreesAvecPhoto.filter((e) => !_souvenirIdsExclus.has(e.id));
+  const idVedette = (eligibles.find((e) => e.id === _souvenirIdVedetteManuel) || eligibles[0])?.id;
+
+  grille.innerHTML = entreesAvecPhoto
+    .map((e) => {
+      const url = photosCache[e.photoIds[0]];
+      const exclue = _souvenirIdsExclus.has(e.id);
+      const estVedette = e.id === idVedette;
+      return `
+        <div class="souvenir-selection-item${exclue ? " exclue" : ""}" data-id="${e.id}">
+          <img src="${url}" alt="">
+          <button type="button" class="souvenir-selection-etoile${estVedette ? " active" : ""}" data-id="${e.id}" data-i18n-aria-label="souvenirVedetteChoisir" aria-label="${t(currentLanguage, "souvenirVedetteChoisir")}">★</button>
+        </div>`;
+    })
+    .join("");
+}
+
+async function _genererEtAfficherSouvenir() {
+  document.getElementById("souvenir-selection").hidden = true;
+  document.getElementById("souvenir-canvas").hidden = false;
+  document.getElementById("souvenir-actions").hidden = false;
+
+  await _dessinerSouvenir(_souvenirEntrees, { idsExclus: _souvenirIdsExclus, idVedette: _souvenirIdVedetteManuel });
 
   const boutonPartager = document.getElementById("souvenir-partager");
   const peutPartagerFichier = !!(window.File && navigator.canShare);
@@ -487,6 +558,27 @@ function fermerSouvenir() {
 
 document.getElementById("bouton-souvenir").addEventListener("click", ouvrirSouvenir);
 document.getElementById("souvenir-fermer").addEventListener("click", fermerSouvenir);
+document.getElementById("souvenir-selection-valider").addEventListener("click", _genererEtAfficherSouvenir);
+
+document.getElementById("souvenir-selection-grille").addEventListener("click", (evenement) => {
+  const etoile = evenement.target.closest(".souvenir-selection-etoile");
+  const item = evenement.target.closest(".souvenir-selection-item");
+  if (!item) return;
+  const id = item.dataset.id;
+
+  if (etoile) {
+    // Choisir une vedette réinclut la sortie si elle était exclue --
+    // une exclusion tacite n'aurait pas de sens face à un choix
+    // explicite de vedette sur la même sortie.
+    _souvenirIdVedetteManuel = id;
+    _souvenirIdsExclus.delete(id);
+  } else if (_souvenirIdsExclus.has(id)) {
+    _souvenirIdsExclus.delete(id);
+  } else {
+    _souvenirIdsExclus.add(id);
+  }
+  _rendreSelectionPhotos();
+});
 
 document.getElementById("souvenir-telecharger").addEventListener("click", async () => {
   const blob = await _canvasVersBlob(document.getElementById("souvenir-canvas"));
