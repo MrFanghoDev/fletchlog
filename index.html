@@ -43,6 +43,15 @@
   }
   .card.help a.button { background: var(--surface-2); color: var(--text); border: 1px solid var(--border); }
 
+  /* Statistiques du carnet (retour utilisateur, 2026-08-26) -- lues
+     depuis IndexedDB au chargement, masquées tant qu'aucune entrée
+     n'existe (rien de significatif à montrer). Un <div>, pas un <p> --
+     .card p a flex-grow:1 (pensé pour la description au-dessus),
+     s'appliquerait ici aussi et se disputerait l'espace vertical avec
+     elle plutôt que de garder sa taille naturelle. */
+  .card-stats { font-size: 0.78rem; color: var(--text-faint); line-height: 1.5; }
+  .card-stats[hidden] { display: none; }
+
   footer { margin-top: 3rem; color: var(--text-faint); font-size: 0.78rem; text-align: center; }
   footer a { color: var(--text-muted); }
 </style>
@@ -86,6 +95,7 @@
     <article class="card app">
       <h2 data-i18n="homeAppTitle">Ouvrir FletchLog</h2>
       <p data-i18n="homeAppDesc">Le carnet lui-même -- installe-le sur ton téléphone pour un accès hors ligne.</p>
+      <div class="card-stats" id="card-stats" hidden></div>
       <a class="button" href="app.html" data-i18n="homeAppButton">Ouvrir l'appli</a>
     </article>
     <article class="card help">
@@ -110,6 +120,7 @@
 <script src="theme.js"></script>
 <script src="sw-register.js"></script>
 <script src="version.js"></script>
+<script src="storage.js"></script>
 <script>
   let currentLanguage = localStorage.getItem("fletchlog_lang") || "fr";
 
@@ -129,9 +140,71 @@
     currentLanguage = lang;
     localStorage.setItem("fletchlog_lang", lang);
     applyTranslations();
+    afficherStatistiquesCarnet();
+  }
+
+  // Statistiques de la carte "Ouvrir FletchLog" (retour utilisateur,
+  // 2026-08-26) -- lues depuis IndexedDB à chaque chargement (aucun
+  // état à maintenir, storage.js chargé pour la première fois sur
+  // cette page). Masquées tant qu'aucune entrée n'existe -- rien de
+  // significatif à montrer à un premier lancement.
+  function formaterTailleStockage(octets) {
+    const unites = currentLanguage === "en" ? ["B", "KB", "MB", "GB"] : ["o", "Ko", "Mo", "Go"];
+    let valeur = octets;
+    let i = 0;
+    while (valeur >= 1024 && i < unites.length - 1) {
+      valeur /= 1024;
+      i++;
+    }
+    return `${valeur.toFixed(i === 0 ? 0 : 1)} ${unites[i]}`;
+  }
+
+  function formaterDateExport(iso) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    const locale = currentLanguage === "en" ? "en-GB" : "fr-FR";
+    return d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  function afficherStatistiquesCarnet() {
+    listerEntrees().then((entrees) => {
+      const conteneur = document.getElementById("card-stats");
+      if (entrees.length === 0) {
+        conteneur.hidden = true;
+        return;
+      }
+
+      const lieuxDistincts = new Set(entrees.map((e) => e.lieu)).size;
+      const texteEntrees = tf(currentLanguage, entrees.length === 1 ? "souvenirSortieSing" : "souvenirSortiePlur", { n: entrees.length });
+      const texteLieux = tf(currentLanguage, lieuxDistincts === 1 ? "homeStatLieuSing" : "homeStatLieuPlur", { n: lieuxDistincts });
+      const lignes = [`${texteEntrees} · ${texteLieux}`];
+
+      const meta = [];
+      const dernierExport = localStorage.getItem("fletchlog_dernier_export");
+      const dateFormatee = dernierExport ? formaterDateExport(dernierExport) : null;
+      if (dateFormatee) meta.push(tf(currentLanguage, "homeStatDernierExport", { date: dateFormatee }));
+
+      // navigator.storage.estimate() -- stockage total utilisé par
+      // FletchLog sur cet appareil (entrées + photos, mais aussi le
+      // cache applicatif et les tuiles de carte déjà consultées), pas
+      // seulement le poids des photos -- présenté comme tel plutôt que
+      // de laisser croire à une mesure plus précise qu'elle ne l'est.
+      const promesseTaille =
+        navigator.storage && navigator.storage.estimate ? navigator.storage.estimate().then((r) => r.usage) : Promise.resolve(null);
+
+      promesseTaille
+        .catch(() => null)
+        .then((usage) => {
+          if (usage != null) meta.push(tf(currentLanguage, "homeStatTaille", { taille: formaterTailleStockage(usage) }));
+          if (meta.length) lignes.push(meta.join(" · "));
+          conteneur.innerHTML = lignes.join("<br>");
+          conteneur.hidden = false;
+        });
+    });
   }
 
   applyTranslations();
+  afficherStatistiquesCarnet();
   document.getElementById("footer-version").textContent = FLETCHLOG_VERSION;
 </script>
 </body>

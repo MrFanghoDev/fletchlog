@@ -1727,3 +1727,51 @@ ET en anglais sur `index.html` comme sur `aide.html` (langue forcée
 via `localStorage` pour un test propre -- un premier essai avait
 mélangé les résultats simplement parce que la préférence de langue
 persiste normalement d'une page à l'autre, pas un bug).
+
+## Statistiques du carnet sur la page d'accueil (retour utilisateur, 2026-08-26)
+
+Demandé sur la carte "Ouvrir FletchLog" de `index.html` : nombre
+d'entrées, de lieux, puis (demandé juste après, en deux temps) date du
+dernier export et taille des données.
+
+`storage.js` chargé sur `index.html` pour la première fois (jusqu'ici
+seulement `app.html`/`aide.html`) -- lecture directe d'IndexedDB, pas
+d'état à maintenir. `#card-stats` (nouveau `<div>`, pas un `<p>` --
+`.card p` a `flex-grow:1`, pensé pour la description juste au-dessus,
+s'appliquerait aussi ici et se disputerait l'espace avec elle) masqué
+tant qu'aucune entrée n'existe (rien de significatif à montrer à un
+premier lancement).
+
+**Taille des données -- choix assumé et explicite** : `navigator.storage.estimate()`
+(API native, lecture de métadonnées seulement) plutôt que de sommer le
+poids de chaque photo une par une (`obtenirPhoto()` sur tout le store
+`"photos"`, qui aurait fallu lire chaque Blob en entier). Plus simple
+et moins coûteux, mais **mesure le stockage total utilisé par
+FletchLog sur cet appareil** (entrées + photos, mais aussi le cache
+applicatif -- `heic2any.min.js` ~1.35 Mo, Leaflet... -- et les tuiles
+de carte déjà consultées), pas seulement le poids des propres photos
+de l'utilisateur. Libellé volontairement neutre ("{taille} de
+stockage utilisés", pas "poids de tes photos") pour ne pas laisser
+croire à une mesure plus précise qu'elle ne l'est -- vérifié en
+testant (3.8 Mo affichés pour seulement 3 entrées sans aucune photo,
+confirmant que la mesure inclut bien le cache applicatif et pas
+uniquement les données de l'utilisateur).
+
+Réutilise `souvenirSortieSing`/`souvenirSortiePlur` (déjà "{n}
+entrée"/"{n} entrées", voir la carte souvenir plus haut) pour le
+compteur d'entrées -- pas besoin d'une nouvelle paire de clés pour la
+même chose. Nouvelles clés : `homeStatLieuSing`/`Plur`,
+`homeStatDernierExport`, `homeStatTaille`.
+
+**Piège évité** : le contenu de `#card-stats` est construit
+dynamiquement (pas via `data-i18n`), donc `setLanguage()` ne le
+retraduisait pas automatiquement en changeant de langue --
+`afficherStatistiquesCarnet()` explicitement rappelée depuis
+`setLanguage()`, en plus de l'appel initial au chargement de la page.
+
+**Vérifié réellement** (Selenium) : carte masquée sur un profil sans
+aucune entrée ; avec des entrées de lieux distincts + un export
+simulé (`localStorage.fletchlog_dernier_export`), contenu correct en
+français ("3 entrées · 2 lieux", "Dernier export : 26 août 2026 · 3.8
+Mo de stockage utilisés") ET en anglais après bascule de langue dans
+le même profil.
