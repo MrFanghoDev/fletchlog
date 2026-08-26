@@ -569,40 +569,74 @@ function chargerEntrees() {
 
 // ---- Photo (issue #4, plusieurs photos depuis #12) ------------------
 
+// Chrome ne sait décoder les images HEIC/HEIF dans AUCUN contexte
+// (<img>, <canvas>...), sur aucune plateforme y compris Android, même
+// quand l'OS lui-même sait le faire -- vérifié par recherche, pas
+// supposé (voir CLAUDE.md, "Bug réel : message 'Le lieu est
+// obligatoire' trompeur", 2026-08-26). Un fichier HEIC (photo par
+// défaut de certains Android "haute efficacité", ou synchronisée
+// depuis un iPhone) faisait donc systématiquement échouer
+// compresserPhoto() avant l'ajout de heic2any.min.js (vendoré, voir le
+// principe de dépendances du CLAUDE.md global -- MIT, aucune
+// dépendance runtime, un seul fichier autonome).
+function _estPhotoHeic(fichier) {
+  const type = (fichier.type || "").toLowerCase();
+  const nom = (fichier.name || "").toLowerCase();
+  return type === "image/heic" || type === "image/heif" || nom.endsWith(".heic") || nom.endsWith(".heif");
+}
+
 function compresserPhoto(fichier) {
   const LONGUEUR_MAX = 1600;
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    const url = URL.createObjectURL(fichier);
-    image.onload = () => {
-      let { width, height } = image;
-      if (width > height && width > LONGUEUR_MAX) {
-        height = Math.round((height * LONGUEUR_MAX) / width);
-        width = LONGUEUR_MAX;
-      } else if (height >= width && height > LONGUEUR_MAX) {
-        width = Math.round((width * LONGUEUR_MAX) / height);
-        height = LONGUEUR_MAX;
-      }
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      canvas.getContext("2d").drawImage(image, 0, 0, width, height);
-      canvas.toBlob(
-        (blob) => {
+  // Conversion HEIC -> JPEG en amont si besoin, puis même pipeline de
+  // redimensionnement/compression que toute autre photo -- jamais de
+  // heic2any() si le fichier n'est pas HEIC, ni si le script n'a pas
+  // pu se charger pour une raison ou une autre (repli silencieux sur
+  // le comportement d'avant, qui échouera proprement via
+  // image.onerror plus bas avec le même message qu'auparavant).
+  const pretAConvertir =
+    _estPhotoHeic(fichier) && typeof heic2any === "function"
+      ? heic2any({ blob: fichier, toType: "image/jpeg", quality: 0.9 })
+          .then((resultat) => (Array.isArray(resultat) ? resultat[0] : resultat))
+          .catch(() => {
+            throw new Error("Image invalide.");
+          })
+      : Promise.resolve(fichier);
+
+  return pretAConvertir.then(
+    (blobSource) =>
+      new Promise((resolve, reject) => {
+        const image = new Image();
+        const url = URL.createObjectURL(blobSource);
+        image.onload = () => {
+          let { width, height } = image;
+          if (width > height && width > LONGUEUR_MAX) {
+            height = Math.round((height * LONGUEUR_MAX) / width);
+            width = LONGUEUR_MAX;
+          } else if (height >= width && height > LONGUEUR_MAX) {
+            width = Math.round((width * LONGUEUR_MAX) / height);
+            height = LONGUEUR_MAX;
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext("2d").drawImage(image, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(url);
+              if (blob) resolve(blob);
+              else reject(new Error("Compression de la photo impossible."));
+            },
+            "image/jpeg",
+            0.7
+          );
+        };
+        image.onerror = () => {
           URL.revokeObjectURL(url);
-          if (blob) resolve(blob);
-          else reject(new Error("Compression de la photo impossible."));
-        },
-        "image/jpeg",
-        0.7
-      );
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Image invalide."));
-    };
-    image.src = url;
-  });
+          reject(new Error("Image invalide."));
+        };
+        image.src = url;
+      })
+  );
 }
 
 // Révoque les URL d'objet des photos "nouvelles" (pas encore
@@ -1078,7 +1112,20 @@ function soumettreFormulaire(evenement) {
     })
     .catch((erreur) => {
       console.warn("Échec de l'enregistrement :", erreur);
-      document.getElementById("form-erreur").hidden = false;
+      // Bug réel signalé par l'utilisateur, 2026-08-26 : ce .catch()
+      // se contentait de réafficher #form-erreur sans jamais y remettre
+      // de texte à jour -- en cas d'échec (quel qu'il soit), le
+      // contenu HTML par défaut de cet élément ("Le lieu est
+      // obligatoire.") restait affiché tel quel, même quand le vrai
+      // problème n'avait rien à voir (ex. une photo au format HEIC,
+      // que Chrome ne sait décoder dans aucun contexte -- voir
+      // compresserPhoto() : image.onerror rejette avec "Image
+      // invalide." dans ce cas). Distingue maintenant un échec de
+      // photo (message actionnable) d'un échec générique.
+      const messagesErreurPhoto = ["Image invalide.", "Compression de la photo impossible."];
+      afficherErreurFormulaire(
+        erreur && messagesErreurPhoto.includes(erreur.message) ? "formPhotoInvalide" : "formErreurGenerique"
+      );
     });
 }
 

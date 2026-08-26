@@ -1454,3 +1454,109 @@ devient bleue après avoir tapé le badge ★ de la 3e photo, et la carte
 de la vue Liste affiche bien la vignette bleue une fois l'entrée
 enregistrée -- confirme que l'ordre choisi dans le formulaire se
 propage correctement jusqu'à `photoIds` puis à l'affichage.
+
+## Bug réel : message "Le lieu est obligatoire" trompeur (retour utilisateur, 2026-08-26)
+
+Signalé : sur une entrée existante, ajouter une photo depuis la
+galerie puis "Enregistrer" affichait "Le lieu est obligatoire" alors
+que le champ était bien rempli. Diagnostiqué avant de corriger --
+non reproductible en Selenium avec un vrai JPEG (formulaire enregistré
+sans erreur, sur une entrée sans photo comme avec une entrée en ayant
+déjà une), ce qui a orienté la recherche vers deux pistes distinctes :
+
+1. **Le vrai bug de code, confirmé et corrigé** : le `.catch()`
+   générique de `soumettreFormulaire()` (`app.js`) se contentait de
+   `document.getElementById("form-erreur").hidden = false` SANS
+   jamais y remettre de texte à jour -- en cas d'échec, quel qu'il
+   soit, le contenu HTML statique par défaut de cet élément
+   (`data-i18n="formLieuRequis"`, texte "Le lieu est obligatoire.")
+   restait affiché tel quel. N'importe quel échec inattendu (photo,
+   IndexedDB...) affichait donc ce message n'ayant aucun rapport avec
+   la vraie cause. Corrigé : le `.catch()` appelle maintenant
+   `afficherErreurFormulaire()` avec une clé adaptée -- distingue un
+   échec de traitement de photo (`formPhotoInvalide`, message
+   actionnable) d'un échec générique (`formErreurGenerique`).
+2. **Cause probable côté utilisateur, vérifiée par recherche web (pas
+   supposée)** : Chrome ne sait décoder les images HEIC/HEIF dans
+   AUCUN contexte (`<img>`, `<canvas>`...), sur aucune plateforme y
+   compris Android, même quand l'OS lui-même sait le faire --
+   confirmé via [upsidelab.io](https://upsidelab.io/blog/handling-heic-on-the-web)
+   et [testmuai.com](https://www.testmuai.com/web-technologies/heif-chrome/).
+   `compresserPhoto()` charge la photo dans un `<img>` pour la
+   redimensionner -- sur un fichier HEIC (photo par défaut de
+   certains Android "haute efficacité", ou synchronisée depuis un
+   iPhone), `image.onerror` se déclenche et rejette avec "Image
+   invalide.", exactement le chemin de code reproduit en test (voir
+   plus bas). **Pas confirmé à 100% que c'était le fichier exact de
+   l'utilisateur** (pas d'accès à son téléphone) -- mais cohérent avec
+   tous les faits rapportés, et le vrai bug (message trompeur) est
+   corrigé indépendamment de cette hypothèse précise.
+
+**Reste ouvert, à trancher avec l'utilisateur si le cas se représente**
+: corriger le message (fait) rend l'échec compréhensible, mais un
+fichier HEIC reste toujours injoignable tel quel dans FletchLog --
+un vrai décodage HEIC côté client demanderait une bibliothèque dédiée
+(ex. `heic2any`/`libheif-js`, WASM) à vendorer, poids non négligeable
+pour un besoin qui ne concerne qu'une partie des photos d'une partie
+des téléphones -- pas ajoutée sans en discuter d'abord (voir le
+principe de dépendances du CLAUDE.md global).
+
+**Vérifié réellement** (Selenium, fichier `.jpg` factice -- pas une
+vraie image, pour déclencher le même `image.onerror` qu'un HEIC sans
+avoir besoin d'un vrai fichier HEIC dans cet environnement) : message
+"Une des photos n'a pas pu être lue..." affiché (plus "Le lieu est
+obligatoire"), erreur réelle confirmée dans la console
+(`Error: Image invalide.`, déclenchée depuis `image.onerror`), champ
+lieu toujours rempli dans le formulaire après l'échec (rien perdu).
+
+## Support HEIC ajouté (retour utilisateur, 2026-08-26)
+
+Suite à la section ci-dessus -- demandé en plus, une fois le message
+d'erreur corrigé : ne pas se contenter d'un message honnête, faire
+fonctionner les photos HEIC pour de vrai.
+
+**`heic2any`** (v0.0.4, MIT, [alexcorvi/heic2any](https://github.com/alexcorvi/heic2any))
+vendoré (`heic2any.min.js`, ~1.35 Mo, téléchargé depuis unpkg et
+committé -- jamais chargé depuis un CDN à l'exécution, voir le principe
+de dépendances du CLAUDE.md global). Choisie car : un seul fichier
+autonome (décodeur WASM `libheif` inclus, `new Blob()`+`Worker` créé en
+mémoire à l'exécution -- aucun asset externe supplémentaire à vendorer
+ni servir), aucune dépendance runtime, expose `window.heic2any` via un
+simple `<script>` (pas de bundler nécessaire). Chargée dans `app.html`
+seulement (là où vit le formulaire photo), avant `app.js`.
+
+**Poids assumé et pas caché** : ~1.35 Mo précaché pour TOUS les
+utilisateurs de `app.html`, même ceux qui n'uploaderont jamais de
+photo HEIC -- décision explicite avec l'utilisateur (voir la question
+posée avant d'ajouter la dépendance), cohérent avec le traitement déjà
+réservé à JSZip/Leaflet (précachés pour tous, pas de chargement à la
+demande) plutôt qu'une exception spéciale pour celle-ci.
+
+**`compresserPhoto()`** (`app.js`) : `_estPhotoHeic(fichier)` détecte
+un HEIC par type MIME (`image/heic`/`image/heif`) **et** extension
+(`.heic`/`.heif`) -- vérifié réellement que Chromium ne rapporte PAS
+toujours `image/heic` pour ce genre de fichier (le test avec un vrai
+fichier HEIC généré via `heif-enc` donnait `image/heif`), d'où les
+deux vérifications plutôt qu'une seule. Si détecté : conversion en
+JPEG via `heic2any({blob, toType:"image/jpeg", quality:0.9})` (un
+échec de heic2any est normalisé vers la même erreur "Image invalide."
+que le reste du pipeline, pour rester détecté par le `.catch()`
+générique déjà corrigé plus haut) puis passage dans le MÊME pipeline
+de redimensionnement/compression que toute autre photo (max 1600px,
+JPEG qualité 0.7) -- pas de chemin de code séparé après la conversion.
+Repli silencieux (`typeof heic2any === "function"`) si le script n'a
+pas pu se charger pour une raison ou une autre -- comportement d'avant
+HEIC (`image.onerror` → "Image invalide.") inchangé dans ce cas.
+
+**Vérifié réellement avec un VRAI fichier HEIC** (pas juste un fichier
+factice comme au point précédent) -- `libheif-tools`/`imagemagick-heic`
+installés dans l'environnement (`apk add libheif libheif-tools`) pour
+générer un `.heic` valide (`heif-enc`, confirmé lisible par
+`heif-info`/`heif-convert` avant le test) : `heic2any` bien chargé
+(`typeof heic2any === "function"`), upload via la galerie sans erreur,
+formulaire fermé (enregistrement réussi), et la couleur de la vignette
+résultante dans la Liste correspond à la couleur source du HEIC
+(comparaison de pixels sur `<canvas>`, léger écart attendu dû aux deux
+passes de recompression JPEG/conversion YCbCr→RGB) -- confirme que
+l'image est vraiment décodée et enregistrée, pas juste que l'erreur
+est évitée.
