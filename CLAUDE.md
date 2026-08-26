@@ -1689,3 +1689,41 @@ supprime bien tout (`listerEntrees()` retourne 0 entrée après) --
 niveau, aucun n'existant pour ça) : passe de 1 à 0 après
 réinitialisation, confirmant que les deux stores sont bien vidés par
 la transaction atomique, pas seulement les entrées.
+
+## Lien croisé vers fletchapps (retour utilisateur, 2026-08-26)
+
+Demandé : ajouter dans les apps du club un lien vers fletchapps (le
+portail commun), accompagné d'une phrase "aguicheuse" pour donner
+envie de découvrir les autres apps -- concerne les quatre dépôts
+(fletchapps lui-même, FletchScore, FletchTime, FletchGames,
+FletchLog), pas seulement celui-ci. Tickets ouverts sur les trois
+autres dépôts + FletchGames (ajouté après coup, signalé manquant par
+l'utilisateur) pour ne pas perdre la demande -- voir
+`fletchapps#8` (ticket "hub", référence les 3 autres), `fletchscore#51`,
+`fletchtime#17`, `fletchgames#1`. Aussi noté en mémoire persistante
+(hors dépôt) pour qu'une future session sur l'un de ces projets le
+retrouve même sans relire les tickets.
+
+**Phrase finalisée après un aller-retour** : une première version
+nommait FletchScore/FletchTime explicitement ("Découvre aussi
+FletchScore et FletchTime sur fletchapps") -- écartée par
+l'utilisateur, qui voulait une formule plus générique, sans citer les
+autres apps par leur nom. Retenue : **"Découvre les autres outils du
+club sur fletchapps →"** (fr) / **"Discover the club's other tools on
+fletchapps →"** (en) -- même formulation reportée dans les 4 tickets,
+pour que l'implémentation sur les autres dépôts la reprenne telle
+quelle plutôt que d'en réinventer une.
+
+**Implémentation** : un seul lien (`<a href="https://mrfanghodev.github.io/fletchapps/"
+target="_blank" rel="noopener">`, toute la phrase comme texte du lien)
+ajouté en 2e ligne du footer existant (`index.html` et `aide.html` --
+les deux seules pages qui ont déjà un footer, voir la décision
+"Versions"/#20 plus haut) via `<br>`, nouvelle clé i18n
+`siteFooterFletchapps`. Pas dans `app.html`, qui n'a pas de footer.
+
+**Vérifié réellement** (Selenium, les deux pages, les deux langues) :
+lien présent avec le bon `href`/`target`, texte correct en français
+ET en anglais sur `index.html` comme sur `aide.html` (langue forcée
+via `localStorage` pour un test propre -- un premier essai avait
+mélangé les résultats simplement parce que la préférence de langue
+persiste normalement d'une page à l'autre, pas un bug).

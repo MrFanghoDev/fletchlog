@@ -7,6 +7,7 @@ const TRANSLATIONS = {
   fr: {
     siteFooterCredit: "Développé pour les Archers Libres de Fontaine-le-Port ·",
     siteFooterLicense: "Licence GPLv3",
+    siteFooterFletchapps: "Découvre les autres outils du club sur fletchapps →",
     homeFooterDevLink: "Dépôt GitHub",
     majDisponible: "Nouvelle version disponible",
     majRecharger: "Recharger",
@@ -153,6 +154,7 @@ const TRANSLATIONS = {
   en: {
     siteFooterCredit: "Built for the Archers Libres de Fontaine-le-Port ·",
     siteFooterLicense: "GPLv3 License",
+    siteFooterFletchapps: "Discover the club's other tools on fletchapps →",
     homeFooterDevLink: "GitHub repository",
     majDisponible: "New version available",
     majRecharger: "Reload",
