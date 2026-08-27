@@ -1775,3 +1775,91 @@ simulé (`localStorage.fletchlog_dernier_export`), contenu correct en
 français ("3 entrées · 2 lieux", "Dernier export : 26 août 2026 · 3.8
 Mo de stockage utilisés") ET en anglais après bascule de langue dans
 le même profil.
+
+## Mini-carte des positions sur la carte souvenir (retour utilisateur, 2026-08-27)
+
+Demandé : "une petite carte de france avec un pin des positions" sur
+la carte souvenir (`souvenir.js`). Clarifié en échange (deux
+`AskUserQuestion`) : encart dans un coin, toutes les sorties
+**filtrées** avec position (pas seulement celles retenues pour les
+vignettes photo -- même principe que les autres stats de la carte) ;
+puis étendu par l'utilisateur à "une carte du monde si plusieurs pays,
+sinon celle du pays où se situent les positions".
+
+**Ce qui est réellement implémenté -- heuristique France/monde, pas
+une vraie détection par pays.** Une vraie détection (point-dans-polygone
+contre les ~195 pays) demanderait soit un appel réseau de
+géocodage inverse (contraire au principe hors-ligne du projet), soit
+d'embarquer et tester les frontières de tous les pays (disproportionné
+pour l'usage réel d'un club français). À la place,
+`_choisirContour(positions)` teste juste si **toutes** les positions
+filtrées tombent dans une bbox généreuse autour de la France
+(`SOUVENIR_FRANCE_LIMITES = { lonMin:-6, lonMax:11, latMin:40,
+latMax:52 }`) : si oui, contour France ; sinon, contour monde. Pas de
+détection par pays individuel (une sortie en Belgique ou en Espagne
+tombe dans la même bbox et affiche quand même le contour France ;
+c'est un choix assumé, pas un bug). **Suivi séparé** : issue
+[fletchlog#26](https://github.com/MrFanghoDev/fletchlog/issues/26)
+pour une vraie internationalisation future, ouverte à la demande
+explicite de l'utilisateur plutôt que de laisser tomber ce besoin.
+
+**Source des données géographiques -- vérifiée domaine public avant
+d'embarquer quoi que ce soit.** Un premier essai avec le dépôt GitHub
+`johan/world.geo.json` a été abandonné : licence ambiguë
+(`gh api repos/johan/world.geo.json` → `{"key":"other","spdx_id":
+"NOASSERTION"}`, aucune licence claire affirmée). Basculé sur Natural
+Earth (naturalearthdata.com), dont les données 1:110m Admin 0
+Countries sont explicitement domaine public ("No permission is needed
+to use Natural Earth. Crediting the authors is unnecessary." --
+politique officielle du projet), récupérées via `nvkelso/natural-earth-vector`
+sur GitHub (miroir officiel). Les coordonnées de la France extraites de
+`world.geo.json` avant l'abandon ont été comparées à celles de Natural
+Earth (mêmes points, à la précision près) pour confirmer la cohérence
+avant de trancher.
+
+**Simplification des contours -- Douglas-Peucker écrit à la main, pas
+`shapely`.** `pip install shapely` a échoué plusieurs fois de suite
+dans cet environnement (instabilité déjà observée ailleurs cette
+session) ; plutôt que de s'acharner sur la dépendance, un algorithme
+RDP (Ramer-Douglas-Peucker) autonome d'une vingtaine de lignes a été
+écrit en Python pur pour le script de traitement ponctuel (non commité,
+fichiers `/tmp/extract_maps*.py` de cette session, supprimés une fois
+le résultat extrait dans `souvenir.js`). Deux constantes résultantes :
+- `CONTOUR_FRANCE` : France métropolitaine + Corse uniquement
+  (~700 octets, 47+7 points). Le premier essai gardait aussi la
+  Guyane (filtre `bbox_area(anneau) > 1`, qui la conservait aussi vu sa
+  taille) -- corrigé en filtrant sur `lon_min > -10`, qui l'exclut
+  proprement sans toucher à la métropole/Corse.
+- `CONTOUR_MONDE` : plus gros anneau de chaque pays/masse continentale,
+  pays de très petite superficie exclus (epsilon=1.2, filtre
+  `bbox_area >= 5`) -- 145 pays, 1292 points, ~18.6 Ko. Un premier
+  réglage plus fin (epsilon=0.35, sans filtre de taille) donnait 176
+  pays / 3476 points / ~48 Ko, jugé trop lourd pour un simple encart
+  décoratif ; retenu volontairement moins précis mais plus léger,
+  suffisant à la taille d'affichage (130 px).
+
+**Rendu (`_dessinerCartePositions`)** : projection équirectangulaire
+avec correction `cos(latitude moyenne)` pour la compression des
+longitudes (approximation délibérément simplifiée, acceptable pour un
+encart décoratif, pas une carte de navigation précise) ; panneau
+arrondi semi-transparent (`rgba(15,18,22,0.55)`, via
+`_cheminRectArrondi()` déjà existant), contour du pays/monde en blanc
+translucide, pins en doré (`#d1a13d`, même teinte que le reste de la
+marque) avec liseré sombre pour rester visibles sur un contour clair.
+Absente d'elle-même si aucune sortie filtrée n'a de position (pas de
+panneau vide). Placée en haut à droite, symétrique du logo en haut à
+gauche (`SOUVENIR_CARTE_TAILLE = 130`).
+
+**Vérifié réellement** (Selenium, deux scénarios) : `_choisirContour()`
+appelée directement avec des tableaux de positions synthétiques
+confirme la logique (3 villes françaises → `CONTOUR_FRANCE` ; France +
+New York → `CONTOUR_MONDE`) ; captures d'écran plein canevas
+(`canvas.toDataURL()`, pas un screenshot de viewport qui aurait pu
+tronquer le canevas -- piège déjà rencontré plus haut dans cette
+session) confirment visuellement les deux cas : silhouette France +
+Corse avec pins dorés pour 3 positions françaises proches (Club,
+Paris, Lyon -- Club et Paris, à ~35 km l'un de l'autre, peuvent se
+fondre visuellement en un seul point à cette échelle, comportement
+normal et pas un bug) ; silhouette monde reconnaissable (Europe,
+Amériques, Asie) avec 3 pins bien distincts pour Club (France), New
+York et Tokyo.
