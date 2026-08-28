@@ -304,7 +304,7 @@ function _listeLieux(entrees) {
   return tf(currentLanguage, "souvenirLieuxEtAutres", { lieux: lieux.slice(0, 2).join(", "), n: lieux.length - 2 });
 }
 
-function _titreEtSousTitre(entrees) {
+function _titreEtSousTitre(entrees, titreManuel) {
   const lieux = new Set(entrees.map((e) => e.lieu));
   const disciplines = new Set(entrees.map((e) => e.discipline).filter(Boolean));
   const dateDebut = document.getElementById("filtre-date-debut").value;
@@ -330,7 +330,19 @@ function _titreEtSousTitre(entrees) {
   // toujours au moins 2 lieux distincts, sinon le titre aurait pris la
   // branche "un seul lieu" plus haut).
   let sousTitre;
-  if (titreEstPeriode) {
+  if (titreManuel) {
+    // Titre manuel (retour utilisateur, 2026-08-28) -- AUCUNE des
+    // branches ci-dessus n'est alors affichée comme titre, donc le
+    // lieu (l'info la plus souvent choisie comme titre auto, un seul
+    // club étant le cas le plus courant) disparaissait entièrement de
+    // la carte : ni en titre (remplacé), ni en sous-titre (qui
+    // affichait la date à la place, en présumant le lieu déjà visible
+    // en titre). Corrigé en montrant toujours le(s) lieu(x) en
+    // sous-titre dès qu'un titre manuel est utilisé, quelle que soit
+    // la branche ci-dessus -- lieu obligatoire à la saisie d'une
+    // entrée (voir le formulaire), toujours au moins un lieu distinct.
+    sousTitre = lieux.size === 1 ? [...lieux][0] : _listeLieux(entrees);
+  } else if (titreEstPeriode) {
     sousTitre = _listeLieux(entrees);
   } else {
     const dates = entrees.map((e) => e.date).filter(Boolean).sort();
@@ -491,10 +503,12 @@ async function _dessinerSouvenir(entrees, selectionPhotos) {
 
   // Titre manuel (retour utilisateur, 2026-08-28) -- saisi sur l'écran
   // de sélection, prioritaire sur le titre auto-déduit (lieu/discipline
-  // unique/période/compteur, voir _titreEtSousTitre()) quand renseigné ;
-  // le sous-titre reste lui toujours auto-calculé (dates ou lieux), une
-  // info utile même quand le titre est personnalisé.
-  const { titre: titreAuto, sousTitre } = _titreEtSousTitre(entrees);
+  // unique/période/compteur) quand renseigné. `titreManuel` est aussi
+  // passé à _titreEtSousTitre() : le sous-titre bascule alors sur
+  // le(s) lieu(x) plutôt que la date (voir le commentaire dans cette
+  // fonction -- sinon le lieu ne s'affichait plus nulle part, bug réel
+  // signalé après le déploiement de ce champ).
+  const { titre: titreAuto, sousTitre } = _titreEtSousTitre(entrees, titreManuel);
   const titre = titreManuel || titreAuto;
   const largeurTexte = largeur - SOUVENIR_MARGE * 2;
 

@@ -1926,3 +1926,69 @@ en stats** (confirmé absent avant ce correctif) ; avec un titre manuel
 "Ma saison 2026 !" saisi, le titre l'emporte sur "Club Test" et
 "Indoor ×3" reste affiché -- capture plein résolution des deux cas
 inspectée directement.
+
+## Correctif réel : le lieu disparaissait aussi avec un titre manuel (retour utilisateur, 2026-08-28, juste après le déploiement de v0.21.0)
+
+Signalé juste après la mise en ligne : "il n'y a plus la localisation
+si le titre est changé" -- clarifié par une question ciblée
+(`AskUserQuestion`, deux lectures possibles : la mini-carte de
+positions, ou la position GPS d'une entrée) -- réponse : ni l'un ni
+l'autre, **"localisation" voulait dire le nom du lieu** (terme
+ambigu en français, à ne pas confondre avec la mini-carte de
+positions -- voir la section juste au-dessus -- ni avec la
+localisation/i18n). Un premier test de reproduction ciblant justement
+la mini-carte n'avait rien montré d'anormal (normal, ce n'était pas le
+bon sous-système) -- la clarification était nécessaire avant de
+continuer à chercher au mauvais endroit.
+
+**Même famille de bug que le correctif discipline juste au-dessus**,
+raté une première fois en écrivant le titre manuel (2026-08-28, plus
+tôt le même jour) : `_titreEtSousTitre()` choisit le lieu comme titre
+quand il est unique, et affiche alors la DATE en sous-titre plutôt que
+de répéter le lieu (déjà visible en titre). Un titre manuel remplace
+le titre affiché mais **ne changeait pas le sous-titre**, qui restait
+la date -- le lieu, absent du titre (remplacé) ET du sous-titre
+(toujours la date), disparaissait entièrement de la carte. Contrairement
+à la discipline (qui a sa propre ligne de stats séparée, capable de
+réapparaître), le lieu n'a **aucun autre affichage** ailleurs sur la
+carte -- rien ne compensait sa disparition.
+
+Corrigé en passant `titreManuel` en second paramètre de
+`_titreEtSousTitre(entrees, titreManuel)` : dès qu'un titre manuel est
+utilisé (peu importe la branche qui aurait été choisie sans lui --
+lieu, discipline, période ou compteur), le sous-titre bascule sur
+le(s) lieu(x) (`[...lieux][0]` si un seul, sinon `_listeLieux(entrees)`,
+la même fonction déjà utilisée pour le cas "titre = période") plutôt
+que sur la date. Le lieu étant un champ obligatoire à la saisie d'une
+entrée (`champ-lieu required`, voir le formulaire), `lieux.size` est
+toujours ≥ 1 -- pas de cas de repli à gérer en plus.
+
+**Leçon retenue, à appliquer par réflexe désormais** : toute info
+"auto-déduite" que le titre manuel peut faire disparaître (lieu,
+discipline, période...) doit être vérifiée une à une avant de livrer
+ce genre de champ -- la discipline avait déjà cette faiblesse
+repérée et corrigée dans le même ticket que le titre manuel, mais le
+lieu, elle, avait été manquée : sa disparition ne pouvait pas se
+remarquer en relisant le code (aucune ligne "et si le lieu
+disparaît ?" n'attirait l'œil, contrairement à la discipline qui avait
+déjà son propre bug documenté et sa propre ligne de code à comparer) --
+seul un vrai test avec le cas "lieu unique + titre manuel" l'aurait
+révélée avant livraison. Les captures de vérification du ticket titre
+manuel (2026-08-28, plus haut) utilisaient déjà exactement ce cas
+(lieu unique "Club Test" + titre manuel "Ma saison 2026 !") mais
+**l'inspection visuelle n'avait porté que sur le titre et la ligne
+discipline** (ce qui était explicitement demandé/corrigé), sans
+remarquer que le sous-titre "28 août 2026" (la date) restait présent
+alors qu'il aurait dû laisser place au lieu -- une case cochée
+("le titre change bien") a masqué une autre régression sur la même
+capture. À refaire : après un correctif ciblé, comparer le rendu
+AVANT/APRÈS ligne par ligne plutôt que de valider seulement l'élément
+explicitement demandé.
+
+**Vérifié réellement** (Selenium, 2 entrées même lieu "Club Test",
+sans titre manuel puis avec) : `_titreEtSousTitre(entrees, "")` ->
+`{titre: "Club Test", sousTitre: "28 août 2026"}` (comportement
+non-manuel inchangé) ; `_titreEtSousTitre(entrees, "Ma saison 2026")`
+-> `sousTitre: "Club Test"` (le lieu, plus la date) -- capture plein
+résolution confirmant visuellement "Ma saison 2026" en titre et
+"Club Test" juste en dessous en sous-titre.
