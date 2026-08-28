@@ -1863,3 +1863,66 @@ fondre visuellement en un seul point à cette échelle, comportement
 normal et pas un bug) ; silhouette monde reconnaissable (Europe,
 Amériques, Asie) avec 3 pins bien distincts pour Club (France), New
 York et Tokyo.
+
+## Titre manuel + correctif discipline manquante sur la carte souvenir (retour utilisateur, 2026-08-28)
+
+Demandé : pouvoir saisir un titre manuellement pour la carte souvenir,
+et "mettre aussi les informations de type de discipline".
+
+**Titre manuel** : nouveau champ `#souvenir-titre-manuel` sur l'écran
+`#souvenir-selection`, désormais **toujours affiché** avant de générer
+la carte (avant ce ticket, cet écran était sauté entièrement quand
+aucune sortie filtrée n'avait de photo -- carte générée directement).
+Le texte d'intro ("Choisis les photos de la carte") et la grille de
+sélection restent masqués dans ce cas (`#souvenir-selection-titre-texte`/
+`#souvenir-selection-grille`, `hidden` togglé dans `ouvrirSouvenir()`),
+mais le champ titre, lui, reste toujours proposé. Lu au moment de
+générer (`_genererEtAfficherSouvenir()`), passé à `_dessinerSouvenir()`
+via `selectionPhotos.titreManuel` -- prioritaire sur le titre
+auto-déduit (`_titreEtSousTitre()`) quand non vide, le sous-titre reste
+lui toujours calculé automatiquement (dates ou lieux), utile même avec
+un titre personnalisé. Remis à vide à chaque ouverture de l'écran
+(`ouvrirSouvenir()`), jamais persisté d'une carte à l'autre. Style
+`.souvenir-titre-input` écrit en dur (pas les tokens `--bg`/`--text` de
+`theme.css`) -- l'overlay de la carte souvenir reste toujours sombre,
+quel que soit le thème clair/sombre choisi dans le reste de l'appli.
+
+**Correctif discipline manquante -- vrai bug, pas juste une demande
+d'ajout.** En creusant "mettre aussi les informations de discipline"
+: la répartition des disciplines existait déjà (`_statsDisciplines()`,
+voir la section du 2026-08-26 plus haut) mais avec une règle de
+masquage trop large. Elle était conçue pour éviter de répéter la
+discipline quand celle-ci est DÉJÀ le titre de la carte -- mais
+`_titreEtSousTitre()` préfère toujours un lieu unique à une discipline
+unique quand les deux se produisent en même temps (cas très courant :
+toutes les sorties filtrées au même club, avec la même discipline).
+Dans ce cas, la discipline ne devenait jamais le titre, mais
+`_statsDisciplines()` la masquait quand même (son ancienne règle :
+masquer dès qu'une seule discipline distincte existe, sans vérifier si
+elle était réellement devenue le titre) -- la discipline disparaissait
+alors entièrement de la carte, ni en titre ni en stats. Un titre
+manuel aggravait encore le problème (le titre n'a alors plus aucun
+rapport avec la discipline, mais l'ancienne règle la masquait quand
+même).
+
+Corrigé en déplaçant la décision de masquage au bon endroit :
+`_statsDisciplines()` retourne maintenant TOUJOURS toutes les
+disciplines rencontrées (y compris une seule), et `_dessinerSouvenir()`
+ne masque la ligne que si elle est à la fois réduite à une seule
+discipline ET que cette discipline est exactement égale au titre
+**réellement affiché** (`disciplinesStats.length === 1 &&
+disciplinesStats[0][0] === titre`, comparé après l'éventuelle
+substitution par le titre manuel) -- la seule vraie redondance à
+éviter, plutôt qu'une règle approximative basée sur le nombre de
+disciplines distinctes sans regarder ce qui est effectivement affiché
+en titre.
+
+**Vérifié réellement** (Selenium, 3 entrées même lieu "Club Test" +
+même discipline "Indoor", sans photo -- déclenche justement le nouveau
+chemin "écran de sélection sans grille") : écran de sélection affiché
+malgré l'absence de photo (`grille masquee: true`), titre auto =
+"Club Test" (lieu gagne, comme avant), et **"Indoor ×3" apparaît bien
+en stats** (confirmé absent avant ce correctif) ; avec un titre manuel
+"Ma saison 2026 !" saisi, le titre l'emporte sur "Club Test" et
+"Indoor ×3" reste affiché -- capture plein résolution des deux cas
+inspectée directement.

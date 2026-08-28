@@ -427,8 +427,21 @@
      (voir le commentaire dans souvenir.js). */
   .souvenir-selection { display: flex; flex-direction: column; gap: 14px; align-items: center; width: 100%; max-width: 420px; }
   .souvenir-selection[hidden] { display: none; }
+  /* Champ toujours visible sur cet écran (retour utilisateur,
+     2026-08-28), y compris quand il n'y a pas de photo à choisir --
+     styles écrits en dur (pas les tokens --bg/--text de theme.css) car
+     l'overlay reste toujours sombre, quel que soit le thème clair/
+     sombre de l'appli (voir .souvenir-overlay plus haut). */
+  .souvenir-titre-input {
+    width: 100%; box-sizing: border-box; font-size: 15px; color: #fff; text-align: center;
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.25); border-radius: 10px; padding: 10px 14px;
+  }
+  .souvenir-titre-input::placeholder { color: rgba(255,255,255,0.5); }
+  .souvenir-titre-input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
   .souvenir-selection-titre { color: rgba(255,255,255,0.85); font-size: 14.5px; font-weight: 600; text-align: center; margin: 0; }
+  .souvenir-selection-titre[hidden] { display: none; }
   .souvenir-selection-grille { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 50vh; max-height: 50dvh; overflow-y: auto; padding: 4px; width: 100%; }
+  .souvenir-selection-grille[hidden] { display: none; }
   .souvenir-selection-item { position: relative; width: 84px; height: 84px; border-radius: 12px; overflow: hidden; background: var(--surface-2); flex-shrink: 0; }
   .souvenir-selection-item img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: pointer; transition: opacity 0.15s ease; }
   .souvenir-selection-item.exclue img { opacity: 0.3; }
@@ -712,7 +725,8 @@
   <div class="souvenir-overlay" id="souvenir-overlay" hidden>
     <button type="button" class="souvenir-fermer" id="souvenir-fermer" data-i18n-aria-label="lightboxFermer" aria-label="Fermer">✕</button>
     <div class="souvenir-selection" id="souvenir-selection" hidden>
-      <p class="souvenir-selection-titre" data-i18n="souvenirSelectionTitre">Choisis les photos de la carte</p>
+      <input type="text" class="souvenir-titre-input" id="souvenir-titre-manuel" maxlength="60" data-i18n-placeholder="souvenirTitreManuelPlaceholder" placeholder="Titre personnalisé (optionnel)">
+      <p class="souvenir-selection-titre" id="souvenir-selection-titre-texte" data-i18n="souvenirSelectionTitre">Choisis les photos de la carte</p>
       <div class="souvenir-selection-grille" id="souvenir-selection-grille"></div>
       <button type="button" class="btn-primary" id="souvenir-selection-valider" data-i18n="souvenirSelectionValider">Générer la carte</button>
     </div>

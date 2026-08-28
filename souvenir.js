@@ -354,16 +354,19 @@ function _statsMeteo(entrees) {
 }
 
 // Répartition des disciplines ("type de parcours", retour utilisateur,
-// 2026-08-26) -- volontairement PAS calculée/affichée quand une seule
-// discipline distincte existe : dans ce cas elle est déjà le titre de
-// la carte (voir _titreEtSousTitre()), la répéter ici serait redondant.
+// 2026-08-26). Retourne TOUTES les disciplines rencontrées, y compris
+// une seule -- la suppression pour ne pas répéter un titre identique se
+// décide au niveau de l'appelant (voir _dessinerSouvenir(), qui compare
+// au titre réellement affiché : celui-ci peut être un lieu, une
+// période ou un titre manuel, pas forcément la discipline -- retour
+// utilisateur, 2026-08-28, la discipline disparaissait entièrement de
+// la carte dans ces cas-là malgré une seule discipline distincte).
 function _statsDisciplines(entrees) {
   const comptes = {};
   for (const e of entrees) {
     if (e.discipline) comptes[e.discipline] = (comptes[e.discipline] || 0) + 1;
   }
-  const stats = Object.entries(comptes).sort((a, b) => b[1] - a[1]);
-  return stats.length > 1 ? stats : [];
+  return Object.entries(comptes).sort((a, b) => b[1] - a[1]);
 }
 
 // Tags les plus fréquents (retour utilisateur, 2026-08-26) -- plafonné
@@ -420,7 +423,7 @@ function _decouperTexte(ctx, texte, largeurMax, maxLignes) {
 // de l'illustration ne doit jamais faire "disparaître" la sortie
 // correspondante des statistiques de la carte.
 async function _dessinerSouvenir(entrees, selectionPhotos) {
-  const { idsExclus = new Set(), idVedette = null } = selectionPhotos || {};
+  const { idsExclus = new Set(), idVedette = null, titreManuel = "" } = selectionPhotos || {};
   const canvas = document.getElementById("souvenir-canvas");
   const ctx = canvas.getContext("2d");
 
@@ -486,7 +489,13 @@ async function _dessinerSouvenir(entrees, selectionPhotos) {
   // aucune sortie filtrée n'a de position.
   _dessinerCartePositions(ctx, entrees, largeur - SOUVENIR_MARGE - SOUVENIR_CARTE_TAILLE, 56, SOUVENIR_CARTE_TAILLE);
 
-  const { titre, sousTitre } = _titreEtSousTitre(entrees);
+  // Titre manuel (retour utilisateur, 2026-08-28) -- saisi sur l'écran
+  // de sélection, prioritaire sur le titre auto-déduit (lieu/discipline
+  // unique/période/compteur, voir _titreEtSousTitre()) quand renseigné ;
+  // le sous-titre reste lui toujours auto-calculé (dates ou lieux), une
+  // info utile même quand le titre est personnalisé.
+  const { titre: titreAuto, sousTitre } = _titreEtSousTitre(entrees);
+  const titre = titreManuel || titreAuto;
   const largeurTexte = largeur - SOUVENIR_MARGE * 2;
 
   // Empilage du BAS vers le HAUT (yCurseur descend d'un pas fixe et
@@ -537,15 +546,19 @@ async function _dessinerSouvenir(entrees, selectionPhotos) {
 
   // Répartition des disciplines ("type de parcours", retour
   // utilisateur, 2026-08-26) -- même style que la météo (compteurs sur
-  // une ligne), voir _statsDisciplines() pour pourquoi elle est vide
-  // quand une seule discipline distincte existe.
+  // une ligne). Masquée seulement quand elle répéterait le titre déjà
+  // affiché (une seule discipline ET le titre est justement cette
+  // discipline) -- sinon affichée même à une seule discipline (voir
+  // _statsDisciplines()).
   const disciplinesStats = _statsDisciplines(entrees);
-  if (disciplinesStats.length) {
+  const disciplinesAffichees =
+    disciplinesStats.length === 1 && disciplinesStats[0][0] === titre ? [] : disciplinesStats;
+  if (disciplinesAffichees.length) {
     yCurseur -= 56;
     ctx.font = "34px system-ui, -apple-system, sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     let x = SOUVENIR_MARGE;
-    for (const [discipline, n] of disciplinesStats) {
+    for (const [discipline, n] of disciplinesAffichees) {
       const texte = `${discipline} ×${n}`;
       ctx.fillText(texte, x, yCurseur);
       x += ctx.measureText(texte).width + 36;
@@ -639,16 +652,18 @@ async function ouvrirSouvenir() {
   _souvenirEntrees = entrees;
   _souvenirIdsExclus = new Set();
   _souvenirIdVedetteManuel = null;
+  document.getElementById("souvenir-titre-manuel").value = "";
 
+  // Champ de titre manuel toujours proposé sur cet écran (retour
+  // utilisateur, 2026-08-28), même sans photo à choisir -- seuls le
+  // texte d'intro et la grille de sélection sont spécifiques au choix
+  // des photos et masqués dans ce cas.
   const entreesAvecPhoto = _entreesAvecPhoto(entrees);
-  if (entreesAvecPhoto.length === 0) {
-    // Rien à choisir -- carte générée directement, sans photo (fond
-    // uni), comme avant l'écran de sélection.
-    await _genererEtAfficherSouvenir();
-    return;
-  }
+  const aDesPhotos = entreesAvecPhoto.length > 0;
+  document.getElementById("souvenir-selection-titre-texte").hidden = !aDesPhotos;
+  document.getElementById("souvenir-selection-grille").hidden = !aDesPhotos;
+  if (aDesPhotos) _rendreSelectionPhotos();
 
-  _rendreSelectionPhotos();
   selection.hidden = false;
 }
 
@@ -680,7 +695,8 @@ async function _genererEtAfficherSouvenir() {
   document.getElementById("souvenir-canvas").hidden = false;
   document.getElementById("souvenir-actions").hidden = false;
 
-  await _dessinerSouvenir(_souvenirEntrees, { idsExclus: _souvenirIdsExclus, idVedette: _souvenirIdVedetteManuel });
+  const titreManuel = document.getElementById("souvenir-titre-manuel").value.trim();
+  await _dessinerSouvenir(_souvenirEntrees, { idsExclus: _souvenirIdsExclus, idVedette: _souvenirIdVedetteManuel, titreManuel });
 
   const boutonPartager = document.getElementById("souvenir-partager");
   const peutPartagerFichier = !!(window.File && navigator.canShare);
