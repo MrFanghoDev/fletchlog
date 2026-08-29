@@ -2339,3 +2339,55 @@ un script strictement identique) -- signalé pour mémoire plutôt que
 laissé sous silence, mais sans impact sur la conclusion : le rendu
 final, obtenu à l'identique deux fois de suite sans erreur, confirme
 le correctif.
+
+## Titre propre de l'entrée pour le souvenir d'une seule entrée (retour utilisateur, 2026-08-30)
+
+Demandé : le souvenir d'une seule entrée (bouton "Souvenir" du
+détail) peut-il garder le même titre que l'entrée, plutôt que celui
+déduit automatiquement ? En pratique, `_titreEtSousTitre()` préfère
+toujours un lieu unique comme titre -- et une seule entrée a
+forcément un lieu unique, donc le titre affichait systématiquement le
+LIEU (ex. "Club des Aigles") plutôt que le TITRE propre de l'entrée
+(ex. "Finale régionale 3D") -- alors que ce champ existe justement
+pour distinguer plusieurs sorties au même lieu (voir le schéma dans
+storage.js).
+
+**Nouvelle branche prioritaire dans `_titreEtSousTitre()`** :
+`entrees.length === 1` -> `titre = entrees[0].titre || entrees[0].lieu`
+(repli sur le lieu pour les entrées d'avant #11, sans titre -- même
+principe que le repli déjà en place ailleurs dans l'app pour ce cas).
+Cette branche passe avant toutes les autres (lieu/discipline/période/
+compteur), qui ne s'appliquent donc plus qu'à partir de 2 entrées.
+
+**Même piège de sous-titre que les deux fois précédentes (titre
+manuel, puis discipline) -- anticipé cette fois plutôt que découvert
+après coup** : le lieu n'est plus automatiquement visible en titre
+dès qu'une seule entrée est concernée, donc le sous-titre doit
+maintenant afficher le lieu (comme pour un titre manuel, voir plus
+haut) plutôt que la date seule. La condition existante
+`if (titreManuel)` du calcul de sous-titre devient
+`if (titreManuel || entrees.length === 1)` -- réutilise exactement le
+même calcul "lieu + date" déjà en place, aucune nouvelle logique de
+sous-titre à écrire.
+
+Un titre manuel saisi sur l'écran de sélection reste prioritaire sur
+ce nouveau comportement (`titre = titreManuel || titreAuto`, dans
+`_dessinerSouvenir()`, inchangé) -- cette nouvelle branche ne fait que
+changer ce que vaut `titreAuto` pour une seule entrée, pas la
+priorité globale déjà en place.
+
+**Vérifié réellement** (Selenium, 2 entrées : "Finale régionale 3D"
+au lieu "Club des Aigles" avec discipline "3D", et une autre entrée à
+un lieu différent) :
+- `_titreEtSousTitre([entree1], '')` -> `{titre: "Finale régionale
+  3D", sousTitre: "Club des Aigles · 29 août 2026"}` -- le titre
+  propre de l'entrée, plus le lieu et la date en sous-titre.
+- `_titreEtSousTitre(entreesActuelles, '')` (les 2 entrées, lieux
+  distincts mais même discipline "3D") -> `titre: "3D"` -- comportement
+  multi-entrées inchangé (repli sur la discipline commune, comme
+  avant).
+- `_titreEtSousTitre([entree1], 'Mon titre perso')` -> sous-titre
+  toujours "Club des Aigles · 29 août 2026" -- confirme que le titre
+  manuel resterait prioritaire au final (appliqué par le CALLER,
+  `_dessinerSouvenir()`), cette fonction ne calculant que le titre
+  AUTO et le sous-titre.

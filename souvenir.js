@@ -328,7 +328,16 @@ function _titreEtSousTitre(entrees, titreManuel) {
 
   let titre;
   let titreEstPeriode = false;
-  if (lieux.size === 1) titre = [...lieux][0];
+  if (entrees.length === 1) {
+    // Une seule entrée -- son propre titre (retour utilisateur,
+    // 2026-08-30) plutôt que son lieu : c'est justement le champ
+    // prévu pour distinguer plusieurs sorties au même lieu (voir le
+    // schéma dans storage.js), plus précis qu'un simple nom de club.
+    // Repli sur le lieu pour les entrées d'avant #11 (pas de titre) --
+    // même principe que le repli déjà en place ailleurs dans l'app
+    // pour ce cas (voir ouvrirFormulaire() dans app.js).
+    titre = entrees[0].titre || entrees[0].lieu;
+  } else if (lieux.size === 1) titre = [...lieux][0];
   else if (disciplines.size === 1) titre = [...disciplines][0];
   else if (dateDebut || dateFin) {
     titre = tf(currentLanguage, "souvenirPeriode", {
@@ -353,17 +362,17 @@ function _titreEtSousTitre(entrees, titreManuel) {
     : "";
 
   let sousTitre;
-  if (titreManuel) {
-    // Titre manuel (retour utilisateur, 2026-08-28) -- AUCUNE des
-    // branches ci-dessus n'est alors affichée comme titre, donc le
-    // lieu (l'info la plus souvent choisie comme titre auto, un seul
-    // club étant le cas le plus courant) disparaissait entièrement de
-    // la carte : ni en titre (remplacé), ni en sous-titre (qui
-    // affichait la date à la place, en présumant le lieu déjà visible
-    // en titre). Corrigé en montrant toujours le(s) lieu(x) en
-    // sous-titre dès qu'un titre manuel est utilisé, quelle que soit
-    // la branche ci-dessus -- lieu obligatoire à la saisie d'une
-    // entrée (voir le formulaire), toujours au moins un lieu distinct.
+  if (titreManuel || entrees.length === 1) {
+    // Titre manuel (retour utilisateur, 2026-08-28) OU titre propre
+    // d'une entrée unique (2026-08-30, voir plus haut) -- dans les
+    // deux cas, le lieu n'est plus forcément affiché en titre (l'info
+    // la plus souvent choisie comme titre auto, un seul club étant le
+    // cas le plus courant) et disparaissait entièrement de la carte :
+    // ni en titre (remplacé), ni en sous-titre (qui affichait la date
+    // à la place, en présumant le lieu déjà visible en titre).
+    // Corrigé en montrant toujours le(s) lieu(x) en sous-titre dans
+    // ces deux cas -- lieu obligatoire à la saisie d'une entrée (voir
+    // le formulaire), toujours au moins un lieu distinct.
     // La date suit après le lieu (retour utilisateur, 2026-08-29) --
     // même séparateur " · " que les stats du carnet sur l'accueil.
     const lieuInfo = lieux.size === 1 ? [...lieux][0] : _listeLieux(entrees);
