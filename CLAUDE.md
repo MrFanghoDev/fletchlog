@@ -2155,3 +2155,27 @@ export filtré, mais change bien après un export complet dans la même
 session (les deux boutons cohabitent sans interférence) ; toast
 "Aucune entrée ne correspond à ces filtres." affiché sur un filtre
 sans résultat, pas de génération d'archive dans ce cas.
+
+## Aide pas à jour après la release v0.22.0 (retour utilisateur, 2026-08-29)
+
+Signalé après coup : l'export filtré (voir juste au-dessus) n'était
+pas mentionné dans `aide.html`. Vérifié en relisant la page (pas
+supposé) -- la note vocale, livrée dans la même release, manquait
+aussi (`aideS2AjoutText` ne listait que les photos parmi le contenu
+d'une entrée). Les deux corrigées ensemble plutôt qu'une seule, même
+oubli de même nature dans la même release -- pas de raison de laisser
+traîner le second gap une fois le premier repéré. Complété :
+`aideS2ListeText` (mentionne le bouton 📤 juste après les filtres,
+cohérent avec `aideS2SouvenirText` qui explique déjà 🖼️ dans la même
+barre), `aideS2AjoutText` (ajoute la note vocale à la liste du contenu
+d'une entrée). Vérifié réellement (Selenium, les deux langues) :
+textes affichés corrects en français ET en anglais sur `aide.html`.
+
+**Leçon à appliquer par réflexe** : une release qui touche plusieurs
+fonctionnalités UI-visibles doit vérifier `aide.html` pour CHACUNE
+d'elles avant de livrer, pas seulement celle explicitement signalée
+après coup -- même principe déjà noté pour "un bug corrigé dans un
+dépôt a de bonnes chances d'exister aussi dans les deux autres" (voir
+CLAUDE.md global, section cohérence entre projets), appliqué ici à
+l'échelle d'une seule release à plusieurs fonctionnalités plutôt qu'à
+plusieurs dépôts.
