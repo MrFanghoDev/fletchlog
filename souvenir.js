@@ -155,14 +155,20 @@ function _cheminRectArrondi(ctx, x, y, taille, rayon) {
   ctx.closePath();
 }
 
-// Dessine `image` en "cover" (recadrée, comme les vignettes du reste de
-// l'appli -- .carte-vignette img { object-fit: cover }) dans un carré
-// arrondi de côté `taille`, coin (x, y).
+// Dessine `image` en "contain" (jamais rognée, retour utilisateur
+// 2026-08-30 -- initialement en "cover"/recadrée comme les vignettes
+// du reste de l'appli, voir l'historique ci-dessous) dans un carré
+// arrondi de côté `taille`, coin (x, y) : même principe que la photo
+// vedette en grand format (voir plus haut, "jamais rognée"), juste
+// appliqué en plus petit ici -- garde tout le détail de la photo
+// d'origine, quitte à laisser un bord vide (le fond sombre de la
+// carte, déjà là à cet endroit) sur les côtés d'une photo dont le
+// ratio n'est pas carré.
 function _dessinerVignette(ctx, image, x, y, taille, rayon) {
   ctx.save();
   _cheminRectArrondi(ctx, x, y, taille, rayon);
   ctx.clip();
-  const echelle = Math.max(taille / image.width, taille / image.height);
+  const echelle = Math.min(taille / image.width, taille / image.height);
   const largeur = image.width * echelle;
   const hauteur = image.height * echelle;
   ctx.drawImage(image, x + (taille - largeur) / 2, y + (taille - hauteur) / 2, largeur, hauteur);

@@ -2297,3 +2297,45 @@ photos JPEG de test -- rouge en couverture, vert en second -- et
    deux de "Entree A") -- capture confirmant visuellement les 3
    couleurs présentes sur la carte (bleu en fond, rouge et vert en
    vignettes), comportement multi-entrées inchangé par ailleurs.
+
+## Miniatures en "contain" plutôt que recadrées (retour utilisateur, 2026-08-30)
+
+Demandé juste après le point ci-dessus : les vignettes de la bande du
+bas gardent-elles tout le détail de la photo d'origine, plutôt que
+d'en perdre les bords ? Réponse : non, jusqu'ici -- `_dessinerVignette()`
+recadrait en "cover" (comme les vignettes du reste de l'appli,
+`.carte-vignette img { object-fit: cover }`), un choix assumé à
+l'origine (voir la section "Bande de vignettes..." du 2026-08-25 plus
+haut : "le recadrage n'est acceptable qu'à cette taille réduite, pas
+sur l'image principale"). L'utilisateur revient sur ce compromis pour
+les vignettes aussi.
+
+**Corrigé en appliquant le même principe que la photo vedette en
+grand format** (déjà en "contain", jamais rognée depuis le
+2026-08-25) : `_dessinerVignette()` passe de `Math.max(taille/largeur,
+taille/hauteur)` (cover) à `Math.min(...)` (contain) pour l'échelle --
+un seul mot-clé changé (`Math.max` -> `Math.min`), le reste de la
+fonction (carré arrondi, clip, liseré) est inchangé. Une photo dont le
+ratio n'est pas carré laisse désormais un bord vide dans son
+emplacement carré (`SOUVENIR_VIGNETTE_TAILLE = 140`) plutôt que
+d'être rognée -- le fond sombre de la carte, déjà là à cet endroit
+(sous la marque/le dégradé), comble naturellement cet espace sans
+qu'il faille dessiner quoi que ce soit en plus.
+
+**Vérifié réellement** (Selenium, une entrée avec 3 photos générées
+via Pillow : vedette carrée 400×400 rouge, une large 400×200 verte
+2:1, une haute 200×400 bleue 1:2 -- ratios délibérément extrêmes pour
+rendre le recadrage évident s'il avait persisté) : capture plein
+résolution confirmant que la vignette verte (large) est bien centrée
+verticalement avec le fond sombre de la carte visible en haut/en bas
+de son emplacement carré, et la vignette bleue (haute) centrée
+horizontalement avec le fond visible à gauche/droite -- aucune des
+deux photos n'est rognée, tout leur contenu reste visible. **Deux
+premières tentatives de vérification ratées par un artefact
+d'environnement** (URLs `blob:` des photos brièvement en erreur
+`ERR_FILE_NOT_FOUND` dans la console, cause exacte non identifiée --
+resté sans erreur ET avec un rendu correct dès la 3e tentative, avec
+un script strictement identique) -- signalé pour mémoire plutôt que
+laissé sous silence, mais sans impact sur la conclusion : le rendu
+final, obtenu à l'identique deux fois de suite sans erreur, confirme
+le correctif.
