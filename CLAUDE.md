@@ -2179,3 +2179,44 @@ dépôt a de bonnes chances d'exister aussi dans les deux autres" (voir
 CLAUDE.md global, section cohérence entre projets), appliqué ici à
 l'échelle d'une seule release à plusieurs fonctionnalités plutôt qu'à
 plusieurs dépôts.
+
+## Créer un souvenir depuis le détail d'une seule entrée (retour utilisateur, 2026-08-30)
+
+Demandé : pouvoir générer une carte souvenir pour une seule entrée
+directement depuis son écran de détail (lecture seule) -- jusqu'ici
+la carte souvenir n'était accessible que via le bouton 🖼️ de la barre
+de filtres, toujours sur `entreesFiltrees()` (l'ensemble filtré
+courant), jamais sur une seule entrée précise.
+
+**`ouvrirSouvenir(entreesPreselectionnees)`** (`souvenir.js`) accepte
+désormais un paramètre optionnel -- `entreesFiltrees()` si omis
+(comportement historique, inchangé pour le bouton de la barre de
+filtres), ou un tableau déjà choisi par l'appelant sinon. Toute la
+logique existante (titre/sous-titre, disciplines, météo, tags,
+sélection de photos, mini-carte) fonctionne sans modification avec un
+tableau d'un seul élément -- pas de cas particulier "une seule
+entrée" à écrire, le code générique gère déjà ce cas correctement
+(confirmé en testant, pas juste supposé).
+
+Nouveau bouton `#detail-souvenir` ("Souvenir") dans `.detail-actions`,
+entre "Supprimer" et "Modifier" -- style `.btn-annuler` (neutre,
+existant, pas une nouvelle classe) pour le distinguer des deux actions
+destructive/primaire déjà là. Appelle `ouvrirSouvenir([entree])` avec
+l'entrée actuellement affichée.
+
+**`detail-overlay` volontairement PAS fermé avant d'ouvrir le
+souvenir** (contrairement au bouton "Modifier", qui ferme le détail
+avant d'ouvrir le formulaire) -- `souvenir-overlay` a un z-index plus
+élevé (27 contre 20 pour le détail), les deux se superposent proprement
+sans conflit, et refermer la carte souvenir révèle le détail exactement
+là où on l'avait laissé, sans avoir besoin de le rouvrir explicitement.
+
+**Vérifié réellement** (Selenium, 2 entrées à des lieux différents --
+si le souvenir n'était pas correctement limité à une seule entrée, le
+titre generé serait tombé sur "2 entrées" plutôt que le lieu de
+l'entrée seule) : bouton présent sur le détail, souvenir ouvert avec
+exactement 1 entrée (`_souvenirEntrees.length === 1`), détail-overlay
+resté ouvert derrière (z-index), titre généré = le lieu de cette seule
+entrée (pas "2 entrées"), retour au détail visible après fermeture du
+souvenir -- capture plein résolution du détail (bouton visible) et de
+la carte générée ("1 entrée") inspectées directement.

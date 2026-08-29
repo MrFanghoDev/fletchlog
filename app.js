@@ -1476,6 +1476,16 @@ function initFormulaire() {
     document.getElementById("detail-overlay").hidden = true;
     ouvrirFormulaire(id);
   });
+  // Souvenir d'une seule entrée (retour utilisateur, 2026-08-30) --
+  // détail-overlay volontairement PAS fermé avant (contrairement à
+  // "Modifier" juste au-dessus) : souvenir-overlay a un z-index plus
+  // élevé (27 contre 20), se superpose proprement, et refermer la
+  // carte souvenir révèle à nouveau le détail exactement où on l'a
+  // laissé -- pas besoin de rouvrir quoi que ce soit.
+  document.getElementById("detail-souvenir").addEventListener("click", () => {
+    const entree = entreesActuelles.find((e) => e.id === idEnEdition);
+    if (entree) ouvrirSouvenir([entree]);
+  });
   document.getElementById("detail-galerie").addEventListener("click", (evenement) => {
     const vignette = evenement.target.closest(".detail-vignette");
     if (!vignette) return;

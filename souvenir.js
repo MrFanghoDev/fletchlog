@@ -648,8 +648,16 @@ let _souvenirEntrees = [];
 let _souvenirIdsExclus = new Set();
 let _souvenirIdVedetteManuel = null;
 
-async function ouvrirSouvenir() {
-  const entrees = entreesFiltrees();
+// `entreesPreselectionnees` optionnel (retour utilisateur, 2026-08-30)
+// -- toutes les entrées filtrées (entreesFiltrees(), comportement
+// historique) si omis, ou un jeu d'entrées déjà choisi par l'appelant
+// (voir le bouton "Souvenir" de l'écran de détail, app.js -- une seule
+// entrée dans ce cas). Toute la logique existante (titre/sous-titre,
+// stats, sélection de photos, mini-carte) fonctionne déjà sans
+// changement avec un tableau d'un seul élément, pas de cas particulier
+// nécessaire.
+async function ouvrirSouvenir(entreesPreselectionnees) {
+  const entrees = entreesPreselectionnees || entreesFiltrees();
   const overlay = document.getElementById("souvenir-overlay");
   const selection = document.getElementById("souvenir-selection");
   const canvas = document.getElementById("souvenir-canvas");
