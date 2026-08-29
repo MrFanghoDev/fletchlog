@@ -15,6 +15,17 @@ let photosFormulaire = [];
 const MAX_PHOTOS = 6;
 let gpsLat = null; // coordonnées capturées pour la nouvelle entrée en cours (issue #6)
 let gpsLon = null;
+let audiosCache = {}; // audioId -> URL d'objet (voir précharcherAudios)
+// Note vocale du formulaire en cours (retour utilisateur, 2026-08-29) --
+// null (aucune), { audioId } (existante, chargée depuis l'entrée en
+// édition) ou { blob, urlApercu } (tout juste enregistrée, pas encore
+// stockée) -- une seule à la fois, contrairement à photosFormulaire
+// (tableau), voir storage.js pour pourquoi une seule note par entrée.
+let audioFormulaire = null;
+let enregistreurAudio = null; // MediaRecorder en cours, ou null hors enregistrement
+let fragmentsAudio = [];
+let minuteurAudio = null; // id de setInterval, pour l'affichage de la durée pendant l'enregistrement
+let debutEnregistrementAudio = null;
 
 const ICONE_PIN =
   '<svg width="13" height="13" viewBox="0 0 24 24" fill="var(--gold)" stroke="none"><path d="M12 2C7.6 2 4 5.6 4 10c0 6 8 12 8 12s8-6 8-12c0-4.4-3.6-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg>';
@@ -30,6 +41,16 @@ const ICONE_GALERIE =
 // objectif, silhouette d'appareil photo classique.
 const ICONE_APPAREIL_PHOTO =
   '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-2h7l1 2H18a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+// Bouton "enregistrer une note vocale" (retour utilisateur, 2026-08-29)
+// -- même style que ICONE_GALERIE/ICONE_APPAREIL_PHOTO (stroke="currentColor",
+// même gabarit 20px), silhouette de micro classique.
+const ICONE_MICRO =
+  '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5M9 21h6"/></svg>';
+// Bouton "arrêter l'enregistrement" -- carré plein, convention standard
+// (comme un bouton stop de lecteur), remplace ICONE_MICRO le temps de
+// l'enregistrement (voir rendreAudioFormulaire()).
+const ICONE_STOP =
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>';
 const ICONE_PLACEHOLDER_PHOTO =
   '<svg width="26" height="26" viewBox="0 0 24 24"><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="#0f1216" stroke-width="1.7"/><ellipse cx="12" cy="15.94" rx="7.03" ry="2.91" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="#0f1216" stroke-width="1.7"/><ellipse cx="12" cy="15.94" rx="4.125" ry="1.6875" fill="none" stroke="var(--text-faint)" stroke-width="1.125"/><g transform="translate(12,10.94) scale(0.268) translate(-44.843,-39.079)"><path stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="#0f1216" d="M 62.853 39.187 L 34.723 39.187 L 25.508 29.226 L 51.190 29.365 L 56.032 39.187 L 51.190 49.009 L 25.508 49.148 L 34.723 39.187 M 39.680 29.831 L 46.066 39.187 L 39.680 48.543" style="transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0, 1, -1, 0, 0.662491, -0.108498)"/><path stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke="var(--text-faint)" d="M 62.853 39.187 L 34.723 39.187 L 25.508 29.226 L 51.190 29.365 L 56.032 39.187 L 51.190 49.009 L 25.508 49.148 L 34.723 39.187 M 39.680 29.831 L 46.066 39.187 L 39.680 48.543" style="transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0, 1, -1, 0, 0.662491, -0.108498)"/></g><circle cx="12" cy="15.94" r="0.5625" fill="var(--text-faint)"/></svg>';
 
@@ -587,11 +608,33 @@ function precharcherPhotos(entrees) {
   );
 }
 
+// Même patron que revoquerPhotosCache()/precharcherPhotos() ci-dessus,
+// pour le store "audios" (retour utilisateur, 2026-08-29) -- une seule
+// note par entrée, mais toujours un ensemble d'ids à dédupliquer (même
+// note jamais partagée entre deux entrées en pratique, mais rien ne
+// l'empêche techniquement).
+function revoquerAudiosCache() {
+  Object.values(audiosCache).forEach((url) => URL.revokeObjectURL(url));
+  audiosCache = {};
+}
+
+function precharcherAudios(entrees) {
+  revoquerAudiosCache();
+  const idsAudios = [...new Set(entrees.map((e) => e.audioId).filter(Boolean))];
+  return Promise.all(
+    idsAudios.map((id) =>
+      obtenirAudio(id).then((blob) => {
+        if (blob) audiosCache[id] = URL.createObjectURL(blob);
+      })
+    )
+  );
+}
+
 function chargerEntrees() {
   return listerEntrees()
     .then((entrees) => {
       entreesActuelles = entrees;
-      return precharcherPhotos(entrees);
+      return Promise.all([precharcherPhotos(entrees), precharcherAudios(entrees)]);
     })
     .then(() => {
       rafraichirFiltres();
@@ -879,6 +922,141 @@ function resoudrePhotosPourEnvoi(entreeExistante) {
   );
 }
 
+// ---- Note vocale (retour utilisateur, 2026-08-29) --------------------
+// MediaRecorder natif (pas de dépendance ajoutée, voir le principe du
+// CLAUDE.md global) -- enregistrement direct dans le formulaire plutôt
+// qu'un simple <input type=file accept=audio/*> délégué à l'appli
+// vocale du téléphone (choisi avec l'utilisateur : reste dans le flux
+// de saisie, comme les photos). Une seule note par entrée (pas de
+// galerie comme les photos) -- voir le schéma dans storage.js.
+
+function formaterDureeAudio(secondes) {
+  const m = Math.floor(secondes / 60);
+  const s = Math.floor(secondes % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+// Reflète l'état courant (audioFormulaire/enregistreurAudio) dans le
+// DOM -- rappelée après chaque changement d'état plutôt que dispersée
+// dans chaque fonction qui modifie cet état (même principe que
+// rendrePhotosGalerie()).
+function rendreAudioFormulaire() {
+  const bouton = document.getElementById("audio-enregistrer");
+  const duree = document.getElementById("audio-duree");
+  const lecteur = document.getElementById("audio-lecteur");
+  const supprimer = document.getElementById("audio-supprimer");
+  if (!bouton) return; // widget masqué (MediaRecorder non supporté, voir initFormulaire())
+
+  const enCours = !!enregistreurAudio;
+  bouton.innerHTML = enCours ? ICONE_STOP : ICONE_MICRO;
+  bouton.classList.toggle("audio-enregistrement", enCours);
+  const cleAria = enCours ? "formAudioArreter" : "formAudioEnregistrer";
+  bouton.setAttribute("data-i18n-aria-label", cleAria);
+  bouton.setAttribute("aria-label", t(currentLanguage, cleAria));
+
+  duree.hidden = !enCours;
+
+  const url = audioFormulaire ? audioFormulaire.urlApercu || audiosCache[audioFormulaire.audioId] : null;
+  lecteur.hidden = enCours || !url;
+  if (url) lecteur.src = url;
+  supprimer.hidden = enCours || !audioFormulaire;
+}
+
+// Garde anti-double-clic pendant l'attente de la permission micro
+// (getUserMedia est asynchrone -- sans ce garde, deux clics rapprochés
+// pendant que le navigateur affiche sa boîte de dialogue de permission
+// pourraient démarrer deux enregistrements concurrents).
+let demarrageAudioEnCours = false;
+
+async function demarrerEnregistrementAudio() {
+  if (enregistreurAudio || demarrageAudioEnCours) return;
+  demarrageAudioEnCours = true;
+  let flux;
+  try {
+    flux = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (erreur) {
+    demarrageAudioEnCours = false;
+    afficherToast(t(currentLanguage, "formAudioPermissionRefusee"));
+    return;
+  }
+  demarrageAudioEnCours = false;
+
+  const typeMime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus"
+    : MediaRecorder.isTypeSupported("audio/webm")
+      ? "audio/webm"
+      : "";
+  enregistreurAudio = typeMime ? new MediaRecorder(flux, { mimeType: typeMime }) : new MediaRecorder(flux);
+  fragmentsAudio = [];
+  enregistreurAudio.addEventListener("dataavailable", (evenement) => {
+    if (evenement.data.size > 0) fragmentsAudio.push(evenement.data);
+  });
+  enregistreurAudio.addEventListener("stop", () => {
+    flux.getTracks().forEach((piste) => piste.stop()); // libère le micro
+    const blob = new Blob(fragmentsAudio, { type: enregistreurAudio.mimeType || "audio/webm" });
+    fragmentsAudio = [];
+    enregistreurAudio = null;
+    clearInterval(minuteurAudio);
+    minuteurAudio = null;
+    revoquerApercuAudioFormulaire();
+    audioFormulaire = { blob, urlApercu: URL.createObjectURL(blob) };
+    rendreAudioFormulaire();
+  });
+  enregistreurAudio.start();
+  debutEnregistrementAudio = Date.now();
+  document.getElementById("audio-duree").textContent = "0:00";
+  minuteurAudio = setInterval(() => {
+    document.getElementById("audio-duree").textContent = formaterDureeAudio((Date.now() - debutEnregistrementAudio) / 1000);
+  }, 500);
+  rendreAudioFormulaire();
+}
+
+function arreterEnregistrementAudio() {
+  if (enregistreurAudio && enregistreurAudio.state === "recording") enregistreurAudio.stop();
+}
+
+// Utilisée juste avant l'enregistrement de l'entrée (soumettreFormulaire())
+// -- sans ça, valider le formulaire pendant un enregistrement encore en
+// cours sauvegarderait l'ancienne note (ou aucune), la nouvelle restant
+// coincée dans le gestionnaire "stop" (asynchrone, voir
+// demarrerEnregistrementAudio()) qui se termine après coup, trop tard
+// pour ce fermerFormulaire()-ci. N'attend que si un enregistrement est
+// réellement en cours -- Promise.resolve() immédiate sinon.
+function attendreArretEnregistrementAudio() {
+  if (!enregistreurAudio || enregistreurAudio.state !== "recording") return Promise.resolve();
+  return new Promise((resolve) => {
+    enregistreurAudio.addEventListener("stop", () => resolve(), { once: true });
+    enregistreurAudio.stop();
+  });
+}
+
+function revoquerApercuAudioFormulaire() {
+  if (audioFormulaire && audioFormulaire.urlApercu) URL.revokeObjectURL(audioFormulaire.urlApercu);
+}
+
+function supprimerAudioFormulaire() {
+  revoquerApercuAudioFormulaire();
+  audioFormulaire = null;
+  rendreAudioFormulaire();
+}
+
+// Même esprit que resoudrePhotosPourEnvoi() ci-dessus, mais pour une
+// valeur unique : rien de nouveau -> supprime l'ancienne note si elle
+// existait (note retirée) ; audioFormulaire.audioId déjà présent ->
+// inchangée, rien à faire ; sinon -> nouvel enregistrement, stocké et
+// remplace l'ancienne le cas échéant.
+function resoudreAudioPourEnvoi(entreeExistante) {
+  const ancienId = entreeExistante ? entreeExistante.audioId : null;
+  if (!audioFormulaire) {
+    return (ancienId ? supprimerAudio(ancienId).catch(() => {}) : Promise.resolve()).then(() => null);
+  }
+  if (audioFormulaire.audioId) {
+    return Promise.resolve(audioFormulaire.audioId);
+  }
+  const suppression = ancienId ? supprimerAudio(ancienId).catch(() => {}) : Promise.resolve();
+  return suppression.then(() => enregistrerAudio(audioFormulaire.blob));
+}
+
 // ---- Géolocalisation (issue #6, éditable depuis #15) ----------------
 // Capturée automatiquement à l'ouverture du formulaire d'AJOUT ; en
 // édition, gpsLat/gpsLon partent de la position déjà enregistrée sur
@@ -1046,6 +1224,13 @@ function afficherDetail(id) {
   // ce qui doublerait avec le label posé par ligneDetail() plus bas.
   const positionTexte =
     entree.lat != null && entree.lon != null ? `${entree.lat.toFixed(5)}, ${entree.lon.toFixed(5)}` : t(currentLanguage, "positionAbsente");
+  // Note vocale (retour utilisateur, 2026-08-29) -- lecteur natif
+  // <audio controls>, même URL déjà résolue par précharcherAudios() que
+  // le formulaire, pas de nouvelle lecture IndexedDB ici.
+  const audioLigne =
+    entree.audioId && audiosCache[entree.audioId]
+      ? `<audio class="detail-audio" controls src="${audiosCache[entree.audioId]}"></audio>`
+      : "";
 
   document.getElementById("detail-corps").innerHTML = `
     <h2>${_echapperTexte(aTitreReel ? entree.titre : entree.lieu)}</h2>
@@ -1058,6 +1243,7 @@ function afficherDetail(id) {
     ${labelsLigne}
     ${meteoLigne}
     ${commentaireLigne}
+    ${audioLigne}
   `;
 
   document.getElementById("detail-overlay").hidden = false;
@@ -1096,6 +1282,10 @@ function ouvrirFormulaire(id) {
   document.getElementById("champ-photo-galerie").value = "";
   rendrePhotosGalerie();
 
+  revoquerApercuAudioFormulaire();
+  audioFormulaire = entree && entree.audioId ? { audioId: entree.audioId } : null;
+  rendreAudioFormulaire();
+
   if (entree) {
     gpsLat = entree.lat ?? null;
     gpsLon = entree.lon ?? null;
@@ -1113,6 +1303,24 @@ function fermerFormulaire() {
   idEnEdition = null;
   revoquerApercusFormulaire();
   photosFormulaire = [];
+
+  // Un enregistrement encore en cours (formulaire fermé sans avoir
+  // arrêté le micro) doit couper le flux -- sinon le micro resterait
+  // ouvert (indicateur système actif) après la fermeture du formulaire.
+  // Ne PAS réinitialiser audioFormulaire avant cet arrêt : le
+  // gestionnaire "stop" (asynchrone) le fait déjà correctement une
+  // fois le flux effectivement coupé -- réinitialiser ici en double
+  // créerait une note orpheline (le blob capturé par le gestionnaire
+  // "stop", qui s'exécute après ce `null`, écraserait silencieusement
+  // ce reset). ouvrirFormulaire() nettoie de toute façon l'état
+  // précédent à la prochaine ouverture, donc rien à perdre à laisser
+  // le gestionnaire "stop" faire son travail normalement ici.
+  if (enregistreurAudio && enregistreurAudio.state === "recording") {
+    enregistreurAudio.stop();
+  } else {
+    revoquerApercuAudioFormulaire();
+    audioFormulaire = null;
+  }
 }
 
 function afficherErreurFormulaire(cle) {
@@ -1137,8 +1345,12 @@ function soumettreFormulaire(evenement) {
 
   const entreeExistante = idEnEdition ? entreesActuelles.find((e) => e.id === idEnEdition) : null;
 
-  resoudrePhotosPourEnvoi(entreeExistante)
-    .then((photoIds) => {
+  // Un enregistrement encore en cours doit se terminer avant de résoudre
+  // la note vocale à sauvegarder, sinon la nouvelle note resterait
+  // coincée dans le gestionnaire "stop" (voir attendreArretEnregistrementAudio()).
+  attendreArretEnregistrementAudio()
+    .then(() => Promise.all([resoudrePhotosPourEnvoi(entreeExistante), resoudreAudioPourEnvoi(entreeExistante)]))
+    .then(([photoIds, audioId]) => {
       const donnees = {
         titre,
         lieu,
@@ -1150,6 +1362,7 @@ function soumettreFormulaire(evenement) {
         meteo: document.getElementById("champ-meteo").value,
         date: document.getElementById("champ-date").value,
         photoIds,
+        audioId,
         // gpsLat/gpsLon reflètent toujours l'état courant (issue #15) :
         // capture auto à l'ajout, position déjà enregistrée par défaut
         // en édition (voir ouvrirFormulaire()), recapturée/choisie sur
@@ -1218,14 +1431,20 @@ function demanderConfirmation(message) {
 }
 
 // Partagée entre le formulaire et l'écran de détail -- même
-// enchaînement (confirmation -> suppression entrée + photos -> toast
-// + rechargement), seul l'écran à refermer une fois fini diffère.
+// enchaînement (confirmation -> suppression entrée + photos + note
+// vocale -> toast + rechargement), seul l'écran à refermer une fois
+// fini diffère.
 function supprimerEntreeConfirmee(id, fermerOverlay) {
   const entree = entreesActuelles.find((e) => e.id === id);
   return demanderConfirmation(t(currentLanguage, "confirmSuppression")).then((confirme) => {
     if (!confirme) return;
     return supprimerEntree(id)
-      .then(() => Promise.all((entree?.photoIds || []).map((pid) => supprimerPhoto(pid).catch(() => {}))))
+      .then(() =>
+        Promise.all([
+          ...(entree?.photoIds || []).map((pid) => supprimerPhoto(pid).catch(() => {})),
+          ...(entree?.audioId ? [supprimerAudio(entree.audioId).catch(() => {})] : []),
+        ])
+      )
       .then(() => {
         fermerOverlay();
         afficherToast(t(currentLanguage, "toastSupprime"));
@@ -1278,6 +1497,19 @@ function initFormulaire() {
     evenement.target.value = "";
     if (fichier) ajouterPhotoFormulaire(fichier);
   });
+
+  // Note vocale (retour utilisateur, 2026-08-29) -- widget masqué en
+  // entier (pas juste le bouton) si MediaRecorder/getUserMedia n'est
+  // pas disponible, plutôt que de laisser un bouton mort.
+  if (window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    document.getElementById("audio-enregistrer").addEventListener("click", () => {
+      if (enregistreurAudio) arreterEnregistrementAudio();
+      else demarrerEnregistrementAudio();
+    });
+    document.getElementById("audio-supprimer").addEventListener("click", supprimerAudioFormulaire);
+  } else {
+    document.getElementById("champ-audio").hidden = true;
+  }
   // Délégation -- les vignettes/boutons "+" sont recréés à chaque
   // rendrePhotosGalerie(), pas de listener à reposer individuellement.
   document.getElementById("photo-galerie").addEventListener("click", (evenement) => {
@@ -1410,6 +1642,35 @@ function initFormulaire() {
       .then((blob) => livrerExport(blob))
       .catch((erreur) => {
         console.warn("Échec de l'export :", erreur);
+        afficherToast(t(currentLanguage, "exportErreur"));
+      })
+      .finally(() => {
+        bouton.disabled = false;
+      });
+  });
+
+  // Export du résultat filtré (retour utilisateur, 2026-08-29) -- même
+  // archive (JSON + photos + audios) que l'export complet ci-dessus,
+  // juste réduite aux entrées actuellement filtrées (entreesFiltrees(),
+  // même fonction que la vue Liste/Carte/la carte souvenir). Ne compte
+  // PAS comme le backup périodique attendu par le rappel d'export
+  // (issue #18) -- un export partiel ne doit jamais faire taire ce
+  // rappel, qui porte sur la sauvegarde de TOUT le carnet (voir
+  // livrerExport() dans export-import.js, options `estBackupComplet`/
+  // `suffixeNomFichier`).
+  document.getElementById("bouton-export-filtre").addEventListener("click", () => {
+    const entrees = entreesFiltrees();
+    if (entrees.length === 0) {
+      afficherToast(t(currentLanguage, "souvenirAucuneEntree"));
+      return;
+    }
+    const bouton = document.getElementById("bouton-export-filtre");
+    bouton.disabled = true;
+    afficherToast(t(currentLanguage, "exportEnCours"));
+    exporterSauvegarde(entrees)
+      .then((blob) => livrerExport(blob, { estBackupComplet: false, suffixeNomFichier: "filtre" }))
+      .catch((erreur) => {
+        console.warn("Échec de l'export filtré :", erreur);
         afficherToast(t(currentLanguage, "exportErreur"));
       })
       .finally(() => {

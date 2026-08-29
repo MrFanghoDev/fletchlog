@@ -1992,3 +1992,166 @@ non-manuel inchangé) ; `_titreEtSousTitre(entrees, "Ma saison 2026")`
 -> `sousTitre: "Club Test"` (le lieu, plus la date) -- capture plein
 résolution confirmant visuellement "Ma saison 2026" en titre et
 "Club Test" juste en dessous en sous-titre.
+
+**Complément demandé juste après (2026-08-29)** : le sous-titre
+"lieu seul" en cas de titre manuel (voir juste au-dessus) perdait la
+date, présente avant ce correctif-ci (comportement non-manuel
+inchangé). Ajouté : `texteDates` (même calcul date unique/période
+qu'avant, juste sorti du `else` pour être réutilisable) accolé après
+le lieu avec le séparateur " · " déjà utilisé ailleurs dans l'appli
+(stats du carnet sur l'accueil) -- `"Club Test · 29 août 2026"`.
+Vérifié réellement (Selenium) : sous-titre sans titre manuel inchangé
+("29 août 2026" seul), avec titre manuel = lieu + date sur la même
+ligne.
+
+## Note vocale par entrée (retour utilisateur, 2026-08-29)
+
+Demandé : pouvoir ajouter une note vocale à une entrée. Deux vrais
+choix tranchés avec l'utilisateur avant de coder (`AskUserQuestion`) :
+enregistrement **dans l'appli** (MediaRecorder natif, pas de dépendance
+ajoutée -- voir le principe du CLAUDE.md global) plutôt qu'un simple
+`<input type=file accept=audio/*>` délégué à l'appli vocale du
+téléphone ; **une seule** note par entrée (pas une galerie comme les
+photos) -- équivalent audio du champ commentaire, pas un système
+multi-fichiers.
+
+**Stockage -- nouveau store IndexedDB `"audios"` (Blob par id, même
+patron que `"photos"`), `DB_VERSION` passé de 1 à 2** (`storage.js`) --
+première vraie montée de version de ce projet (jusqu'ici `"photos"`
+avait été créé dès le départ précisément pour éviter d'en avoir besoin,
+voir plus haut). Sans risque pour les données existantes : `onupgradeneeded`
+n'ajoute que le store manquant (garde `if (!contains(...))`, comme pour
+`"entrees"`/`"photos"`), rien touché aux stores déjà là. **Store séparé,
+pas mélangé dans `"photos"`** malgré le même patron -- l'export
+(`export-import.js`) suppose que tout blob de `"photos"` est une image
+JPEG (`photos/<id>.jpg`), mélanger des blobs audio aurait cassé cette
+hypothèse plutôt que de l'étendre proprement avec un dossier `audios/`
+séparé dans l'archive. Nouveau champ `audioId` (string | null) sur le
+schéma d'entrée, fonctions `enregistrerAudio`/`obtenirAudio`/
+`supprimerAudio`/`restaurerAudio` miroir exact des fonctions photo.
+`reinitialiserDonnees()` vide aussi ce store désormais (transaction à 3
+stores).
+
+**Enregistrement (`app.js`)** : `navigator.mediaDevices.getUserMedia({audio:true})`
+puis `MediaRecorder` (`audio/webm;codecs=opus` demandé explicitement
+si supporté, repli sur `audio/webm` puis sur le défaut du navigateur) --
+widget **masqué en entier** (`#champ-audio`, pas juste le bouton) si
+`MediaRecorder`/`getUserMedia` indisponible, plutôt qu'un bouton mort
+(`initFormulaire()`). Bouton micro (`ICONE_MICRO`, même style/gabarit
+que `ICONE_GALERIE`/`ICONE_APPAREIL_PHOTO`) qui bascule en bouton stop
+(`ICONE_STOP`, rouge) pendant l'enregistrement, avec un compteur de
+durée (`#audio-duree`, mis à jour toutes les 500ms). Une fois arrêté :
+lecteur natif `<audio controls>` + bouton de suppression -- ré-appuyer
+sur le micro à ce stade démarre un NOUVEL enregistrement qui remplace
+la note existante (pas besoin de supprimer d'abord), `resoudreAudioPourEnvoi()`
+gère le remplacement (supprime l'ancien blob, stocke le nouveau) au
+même titre qu'une suppression pure ou qu'une note inchangée.
+
+**Trois pièges évités en écrivant cette fonctionnalité (pas rencontrés
+en test a posteriori, anticipés à la conception)** :
+1. **Micro laissé ouvert si le formulaire est fermé pendant
+   l'enregistrement** -- `fermerFormulaire()` arrête explicitement le
+   `MediaRecorder` en cours (`piste.stop()` sur le flux, dans le
+   gestionnaire "stop" existant) plutôt que de laisser l'indicateur
+   micro du système actif après la fermeture du formulaire.
+2. **Course entre la fermeture du formulaire et le gestionnaire "stop"
+   asynchrone** -- si `fermerFormulaire()` avait remis `audioFormulaire`
+   à `null` juste après avoir appelé `.stop()`, le gestionnaire "stop"
+   (qui s'exécute après, de façon asynchrone) l'aurait écrasé en le
+   remettant à la note fraîchement enregistrée -- une note orpheline,
+   jamais nettoyée avant la prochaine ouverture du formulaire. Corrigé
+   en laissant le gestionnaire "stop" faire son travail normalement
+   dans ce cas (`ouvrirFormulaire()` nettoie de toute façon l'état
+   précédent à la prochaine ouverture, rien perdu).
+3. **Valider le formulaire pendant un enregistrement encore en cours**
+   -- sans y penser, `soumettreFormulaire()` aurait sauvegardé
+   l'ancienne note (ou aucune), la nouvelle restant coincée dans le
+   même gestionnaire "stop" asynchrone qui se termine après coup, trop
+   tard pour ce `fermerFormulaire()`-ci. Corrigé avec
+   `attendreArretEnregistrementAudio()` -- une promesse qui arrête
+   l'enregistrement en cours (s'il y en a un) et attend que le
+   gestionnaire "stop" ait fini avant de résoudre les photos/l'audio à
+   sauvegarder.
+
+**Export/import** (`export-import.js`) : un fichier par note sous
+`audios/<audioId>.webm` dans l'archive, même principe que
+`photos/<photoId>.jpg`. Repli sur `entree.audioId ?? null` à l'import
+(absent des sauvegardes exportées avant cette fonctionnalité) -- même
+principe que le repli `photoId`/`photoIds` déjà en place pour les
+sauvegardes d'avant #12.
+
+**Vérifié réellement** (Selenium, `--use-fake-device-for-media-stream`
++ `--use-fake-ui-for-media-stream` -- flags Chrome qui simulent un
+micro et auto-acceptent la permission, permettant un vrai test de bout
+en bout de `getUserMedia`/`MediaRecorder` en headless, pas seulement la
+logique JS autour) : widget visible, enregistrement démarre/s'arrête
+avec un blob non vide produit, lecteur + bouton supprimer affichés
+après coup, sauvegarde avec le bon `audioId`, rechargement en édition
+avec le lecteur déjà rempli, note affichée dans l'écran de détail ;
+suppression avant sauvegarde (audioId `null` à l'enregistrement),
+suppression d'une entrée avec note (blob confirmé absent du store
+après coup, pas juste déréférencé), remplacement d'une note existante
+par une nouvelle (ancien blob confirmé supprimé, nouvel id différent) ;
+export contient bien `audios/<id>.webm` (inspection directe de
+l'archive via JSZip) ; cycle complet export -> réinitialisation ->
+import restaure l'entrée ET la note (même `audioId`, blob de taille
+identique) ; `reinitialiserDonnees()` vide bien le store `"audios"`
+(compte IndexedDB direct, 1 -> 0). **Non vérifié** : le message
+d'erreur affiché si la permission micro est refusée (le flag Chrome
+utilisé pour le test l'accepte toujours automatiquement, pas de moyen
+simple de simuler un refus en headless) -- chemin de code simple
+(try/catch autour de `getUserMedia`, toast) mais son affichage réel
+n'a pas été confirmé visuellement.
+
+## Export du résultat d'un filtrage (retour utilisateur, 2026-08-29)
+
+Demandé juste après la note vocale, dans le même message : pouvoir
+exporter seulement les entrées qui correspondent aux filtres actifs
+(recherche, chips, période), pas systématiquement tout le carnet.
+
+**Décision de conception prise sans reposer la question** (placement
+et format, pas de vrai dilemme à trancher avec l'utilisateur cette
+fois) : nouveau bouton `#bouton-export-filtre` dans `.periode-filtre`
+(juste à côté de 🖼️ carte souvenir -- même ligne, même style de
+bouton rond `.bouton-souvenir`, qui s'avère être une classe générique
+malgré son nom, pas spécifique à la carte souvenir). Même archive
+`.zip` (JSON + photos + audios) que l'export complet plutôt qu'un
+format distinct -- le sous-ensemble filtré reste réimportable tel
+quel par `importerSauvegarde()`, aucune raison de maintenir deux
+formats.
+
+**Point de conception important, tranché avant de coder** : un export
+filtré ne doit **jamais** être compté comme la sauvegarde complète
+attendue par le rappel périodique (issue #18) -- sinon exporter juste
+"les sorties de ce mois" ferait taire à tort le rappel, qui suppose
+que "dernier export" veut dire "tout le carnet est sauvegardé".
+`exporterSauvegarde(entrees)` (`export-import.js`) accepte maintenant
+un paramètre optionnel -- toutes les entrées via `listerEntrees()` si
+omis (comportement historique, inchangé pour les deux boutons
+existants), ou un sous-ensemble déjà filtré fourni par l'appelant
+(`entreesFiltrees()`, même fonction que les vues Liste/Carte/la carte
+souvenir -- pas de nouvel état de filtre à maintenir). `livrerExport()`
+accepte un nouvel objet d'options `{estBackupComplet, suffixeNomFichier}`
+-- `estBackupComplet` (vrai par défaut, donc les deux boutons
+existants restent inchangés sans y toucher) contrôle si
+`_marquerExportReussi()` est appelé ; `suffixeNomFichier` distingue le
+nom du fichier téléchargé/partagé (`fletchlog-export-filtre-...zip`
+plutôt que `fletchlog-export-...zip`) pour ne pas laisser croire à une
+sauvegarde complète en le regardant après coup.
+
+Toast dédié (réutilise la clé existante `souvenirAucuneEntree`, déjà
+"Aucune entrée ne correspond à ces filtres." -- même sémantique
+exacte que le message déjà affiché sur la carte souvenir quand le
+filtre ne retourne rien, pas de nouvelle clé pour la même chose) si le
+filtre courant ne retourne aucune entrée -- évite de produire une
+archive vide silencieusement.
+
+**Vérifié réellement** (Selenium, 3 entrées : 2 "Indoor" au club A, 1
+"Field" au club B, filtre discipline appliqué) : `entreesFiltrees()`
+et le contenu réel de l'archive générée (`entrees.json` inspecté via
+JSZip) coïncident exactement (2 entrées Indoor, la Field exclue) ;
+`fletchlog_dernier_export` (localStorage) reste inchangé après un
+export filtré, mais change bien après un export complet dans la même
+session (les deux boutons cohabitent sans interférence) ; toast
+"Aucune entrée ne correspond à ces filtres." affiché sur un filtre
+sans résultat, pas de génération d'archive dans ce cas.

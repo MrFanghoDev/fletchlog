@@ -246,6 +246,7 @@
   .detail-commentaire { font-size: 0.9rem; color: var(--text); line-height: 1.5; padding: 12px 0; border-bottom: 1px solid var(--border); white-space: pre-wrap; margin: 0; }
   .detail-labels { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--border); }
   .detail-meteo { display: flex; align-items: center; gap: 6px; padding: 12px 0; font-size: 0.9rem; color: var(--text-muted); }
+  .detail-audio { width: 100%; height: 40px; margin-top: 8px; }
   .detail-actions { display: flex; gap: 10px; margin-top: 16px; }
   .detail-actions button { flex: 1; }
 
@@ -348,6 +349,27 @@
     width: 64px; height: 64px; border-radius: 10px; background: var(--surface-2);
     border: 1px dashed var(--border); display: flex; align-items: center; justify-content: center;
     flex-shrink: 0; cursor: pointer; color: var(--text-muted); font-size: 1.4rem; font-family: inherit;
+  }
+
+  /* Note vocale (retour utilisateur, 2026-08-29) -- même gabarit de
+     bouton rond que .photo-ajouter, mais 48px (pas de galerie de
+     vignettes à aligner dessus, une seule note). */
+  .audio-note { display: flex; align-items: center; gap: 10px; }
+  .audio-enregistrer {
+    width: 48px; height: 48px; border-radius: 50%; background: var(--surface-2);
+    border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; cursor: pointer; color: var(--text-muted); padding: 0;
+  }
+  /* Pendant l'enregistrement (voir rendreAudioFormulaire() dans app.js)
+     -- rouge plein, cohérent avec la convention "enregistrement actif"
+     des vrais appareils/apps d'enregistrement. */
+  .audio-enregistrer.audio-enregistrement { background: #c0392b; border-color: #c0392b; color: #fff; }
+  .audio-duree { font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 0.9rem; }
+  .audio-lecteur { height: 40px; max-width: 220px; flex: 1; min-width: 0; }
+  .audio-supprimer {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--surface-2); color: var(--text-muted);
+    border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; cursor: pointer; padding: 0; line-height: 0; font-size: 0.85rem;
   }
 
   .carte-vignette img { width: 100%; height: 100%; object-fit: cover; border-radius: 10px; display: block; }
@@ -554,6 +576,11 @@
         <span class="periode-separateur">→</span>
         <input type="date" id="filtre-date-fin" data-i18n-aria-label="filtreDateFinLabel" aria-label="Au">
         <button type="button" class="bouton-souvenir" id="bouton-souvenir" data-i18n-aria-label="souvenirBouton" aria-label="Carte souvenir">🖼️</button>
+        <!-- Export du résultat filtré (retour utilisateur, 2026-08-29)
+             -- .bouton-souvenir est un style de bouton rond générique
+             (pas spécifique à la carte souvenir malgré son nom), même
+             réutilisation qu'ailleurs dans cette barre. -->
+        <button type="button" class="bouton-souvenir" id="bouton-export-filtre" data-i18n-aria-label="exportFiltreBouton" aria-label="Exporter le résultat filtré">📤</button>
       </div>
     </div>
 
@@ -681,6 +708,18 @@
                (photographier sur le pas de tir). -->
           <input type="file" accept="image/*" capture="environment" id="champ-photo" hidden>
           <input type="file" accept="image/*" id="champ-photo-galerie" hidden>
+        </div>
+        <div class="field" id="champ-audio">
+          <label data-i18n="formAudioLabel">Note vocale</label>
+          <!-- MediaRecorder natif (retour utilisateur, 2026-08-29) --
+               widget masqué en entier si non supporté (voir
+               initFormulaire() dans app.js), pas de repli fichier. -->
+          <div class="audio-note">
+            <button type="button" class="audio-enregistrer" id="audio-enregistrer" data-i18n-aria-label="formAudioEnregistrer" aria-label="Enregistrer une note vocale"></button>
+            <span class="audio-duree" id="audio-duree" hidden>0:00</span>
+            <audio class="audio-lecteur" id="audio-lecteur" controls hidden></audio>
+            <button type="button" class="audio-supprimer" id="audio-supprimer" data-i18n-aria-label="formAudioSupprimer" aria-label="Supprimer la note vocale" hidden>✕</button>
+          </div>
         </div>
         <p class="form-erreur" id="form-erreur" data-i18n="formLieuRequis" hidden>Le lieu est obligatoire.</p>
         <div class="form-actions">

@@ -42,6 +42,11 @@
  *                         -- repli géré à la lecture par listerEntrees(),
  *                         jamais migré/persisté (même principe que le
  *                         titre manquant des entrées d'avant #11)
+ *   audioId     string | null   référence vers le store "audios" (Blob,
+ *                         retour utilisateur 2026-08-29) -- une seule
+ *                         note vocale par entrée (contrairement aux
+ *                         photos), pas de tableau. `null` tant qu'aucun
+ *                         enregistrement.
  *   creeLe      string   horodatage ISO de création, posé par
  *                         ajouterEntree -- jamais fourni par l'appelant
  *
@@ -50,12 +55,26 @@
  * store à une base IndexedDB existante demande de monter la version
  * et un nouveau onupgradeneeded, autant le faire une seule fois ici
  * puisque le champ photoId fait déjà partie du schéma de #2.
+ *
+ * Store "audios" (clé = audioId, valeur = Blob -- webm/opus produit par
+ * MediaRecorder, voir démarrerEnregistrementAudio() dans app.js) ajouté
+ * en DB_VERSION 2 (retour utilisateur, 2026-08-29) -- première vraie
+ * montée de version de ce projet (jusqu'ici "photos" avait été créé dès
+ * le départ pour éviter ça, voir juste au-dessus). Pas de risque pour
+ * les données existantes : onupgradeneeded ne fait qu'ajouter le store
+ * manquant (même garde `if (!contains(...))` que pour "entrees"/
+ * "photos"), rien touché aux stores déjà là. Volontairement PAS
+ * mélangé dans le store "photos" existant malgré le même patron
+ * (Blob par id) -- l'export (export-import.js) suppose que tout blob
+ * du store "photos" est une image JPEG (`photos/<id>.jpg`), mélanger
+ * des blobs audio aurait cassé cette hypothèse plutôt que de
+ * l'étendre proprement avec un dossier `audios/` séparé dans l'archive.
  */
 
 const METEO_OPTIONS = ["ensoleille", "nuageux", "pluie", "vent", "aucune"];
 
 const DB_NOM = "fletchlog";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 function _ouvrirDB() {
   return new Promise((resolve, reject) => {
@@ -68,6 +87,9 @@ function _ouvrirDB() {
       }
       if (!db.objectStoreNames.contains("photos")) {
         db.createObjectStore("photos");
+      }
+      if (!db.objectStoreNames.contains("audios")) {
+        db.createObjectStore("audios");
       }
     };
     requete.onsuccess = () => resolve(requete.result);
@@ -101,6 +123,7 @@ function ajouterEntree(entree) {
     meteo: METEO_OPTIONS.includes(entree.meteo) ? entree.meteo : "aucune",
     date: entree.date ?? new Date().toISOString().slice(0, 10),
     photoIds: Array.isArray(entree.photoIds) ? entree.photoIds.slice(0, 6) : [],
+    audioId: entree.audioId ?? null,
     creeLe: new Date().toISOString(),
   };
   return _ouvrirDB().then(
@@ -226,6 +249,47 @@ function supprimerPhoto(photoId) {
   );
 }
 
+// ---- Store "audios" (retour utilisateur, 2026-08-29) -- même patron
+// que le store "photos" ci-dessus (clé explicite, Blob en valeur), voir
+// le schéma en tête de fichier pour pourquoi c'est un store séparé. ---
+
+function enregistrerAudio(blob) {
+  const id = crypto.randomUUID();
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction("audios", "readwrite");
+        transaction.objectStore("audios").put(blob, id);
+        transaction.oncomplete = () => resolve(id);
+        transaction.onerror = () => reject(transaction.error);
+      })
+  );
+}
+
+function obtenirAudio(audioId) {
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction("audios", "readonly");
+        const requete = transaction.objectStore("audios").get(audioId);
+        requete.onsuccess = () => resolve(requete.result || null);
+        requete.onerror = () => reject(requete.error);
+      })
+  );
+}
+
+function supprimerAudio(audioId) {
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction("audios", "readwrite");
+        transaction.objectStore("audios").delete(audioId);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      })
+  );
+}
+
 // ---- Import d'une sauvegarde (issue #5) -----------------------------
 // restaurerEntree/restaurerPhoto préservent l'id/photoId exact de la
 // sauvegarde (contrairement à ajouterEntree/enregistrerPhoto, qui en
@@ -268,6 +332,22 @@ function restaurerPhoto(photoId, blob) {
   );
 }
 
+function restaurerAudio(audioId, blob) {
+  return _ouvrirDB().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const transaction = db.transaction("audios", "readwrite");
+        const requete = transaction.objectStore("audios").add(blob, audioId);
+        requete.onsuccess = () => resolve(true);
+        requete.onerror = (evenement) => {
+          evenement.preventDefault();
+          resolve(false);
+        };
+        transaction.onerror = (evenement) => evenement.preventDefault();
+      })
+  );
+}
+
 // ---- Réinitialisation complète (retour utilisateur, 2026-08-26 --
 // même fonctionnalité que FletchGames) -----------------------------
 // Vide les deux stores dans une seule transaction atomique -- jamais
@@ -277,9 +357,10 @@ function reinitialiserDonnees() {
   return _ouvrirDB().then(
     (db) =>
       new Promise((resolve, reject) => {
-        const transaction = db.transaction(["entrees", "photos"], "readwrite");
+        const transaction = db.transaction(["entrees", "photos", "audios"], "readwrite");
         transaction.objectStore("entrees").clear();
         transaction.objectStore("photos").clear();
+        transaction.objectStore("audios").clear();
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
       })

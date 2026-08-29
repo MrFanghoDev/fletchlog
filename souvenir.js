@@ -329,6 +329,13 @@ function _titreEtSousTitre(entrees, titreManuel) {
   // lieux concernés sont plus utiles ici (titreEstPeriode implique
   // toujours au moins 2 lieux distincts, sinon le titre aurait pris la
   // branche "un seul lieu" plus haut).
+  const dates = entrees.map((e) => e.date).filter(Boolean).sort();
+  const texteDates = dates.length
+    ? dates[0] !== dates[dates.length - 1]
+      ? tf(currentLanguage, "souvenirPeriode", { debut: formaterDate(dates[0]), fin: formaterDate(dates[dates.length - 1]) })
+      : formaterDate(dates[0])
+    : "";
+
   let sousTitre;
   if (titreManuel) {
     // Titre manuel (retour utilisateur, 2026-08-28) -- AUCUNE des
@@ -341,17 +348,14 @@ function _titreEtSousTitre(entrees, titreManuel) {
     // sous-titre dès qu'un titre manuel est utilisé, quelle que soit
     // la branche ci-dessus -- lieu obligatoire à la saisie d'une
     // entrée (voir le formulaire), toujours au moins un lieu distinct.
-    sousTitre = lieux.size === 1 ? [...lieux][0] : _listeLieux(entrees);
+    // La date suit après le lieu (retour utilisateur, 2026-08-29) --
+    // même séparateur " · " que les stats du carnet sur l'accueil.
+    const lieuInfo = lieux.size === 1 ? [...lieux][0] : _listeLieux(entrees);
+    sousTitre = texteDates ? `${lieuInfo} · ${texteDates}` : lieuInfo;
   } else if (titreEstPeriode) {
     sousTitre = _listeLieux(entrees);
   } else {
-    const dates = entrees.map((e) => e.date).filter(Boolean).sort();
-    sousTitre =
-      dates.length && dates[0] !== dates[dates.length - 1]
-        ? tf(currentLanguage, "souvenirPeriode", { debut: formaterDate(dates[0]), fin: formaterDate(dates[dates.length - 1]) })
-        : dates.length
-          ? formaterDate(dates[0])
-          : "";
+    sousTitre = texteDates;
   }
 
   return { titre, sousTitre };

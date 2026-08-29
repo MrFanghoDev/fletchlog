@@ -4,21 +4,33 @@
  * principe de dépendances dans le CLAUDE.md global) contenant
  * entrees.json (métadonnées de toutes les entrées) + un fichier par
  * photo sous photos/<photoId>.jpg -- pas de base64, ça gonflerait
- * l'archive d'environ un tiers pour rien.
+ * l'archive d'environ un tiers pour rien. Depuis la note vocale
+ * (retour utilisateur, 2026-08-29), un fichier par note sous
+ * audios/<audioId>.webm, même principe.
  *
  * Comportement à l'import décidé en écrivant ce ticket : un id déjà
  * présent est ignoré, jamais écrasé ni dupliqué -- réimporter deux
  * fois la même sauvegarde doit être sans effet la seconde fois (voir
- * storage.js::restaurerEntree/restaurerPhoto, qui portent cette
- * garantie au niveau de la base plutôt qu'ici).
+ * storage.js::restaurerEntree/restaurerPhoto/restaurerAudio, qui
+ * portent cette garantie au niveau de la base plutôt qu'ici).
+ *
+ * Export du résultat d'un filtrage (retour utilisateur, 2026-08-29) --
+ * même archive, juste réduite à un sous-ensemble d'entrées passé par
+ * l'appelant (voir exporterSauvegarde(entrees) et le bouton dédié dans
+ * la barre de filtres, app.js) plutôt qu'un format distinct : ce
+ * sous-ensemble reste réimportable tel quel par importerSauvegarde(),
+ * aucune raison de maintenir deux formats.
  */
 
-function _nomFichierExport() {
-  return `fletchlog-export-${new Date().toISOString().slice(0, 10)}.zip`;
+function _nomFichierExport(suffixe) {
+  return `fletchlog-export${suffixe ? "-" + suffixe : ""}-${new Date().toISOString().slice(0, 10)}.zip`;
 }
 
-function exporterSauvegarde() {
-  return listerEntrees().then((entrees) => {
+// `entrees` optionnel -- toutes les entrées du carnet si omis (export
+// complet, comportement historique), ou un sous-ensemble déjà filtré
+// fourni par l'appelant (voir le commentaire en tête de fichier).
+function exporterSauvegarde(entrees) {
+  return (entrees ? Promise.resolve(entrees) : listerEntrees()).then((entrees) => {
     const zip = new JSZip();
     zip.file(
       "entrees.json",
@@ -26,13 +38,19 @@ function exporterSauvegarde() {
     );
 
     const idsPhotos = [...new Set(entrees.flatMap((e) => e.photoIds || []))];
-    return Promise.all(
-      idsPhotos.map((id) =>
+    const idsAudios = [...new Set(entrees.map((e) => e.audioId).filter(Boolean))];
+    return Promise.all([
+      ...idsPhotos.map((id) =>
         obtenirPhoto(id).then((blob) => {
           if (blob) zip.file(`photos/${id}.jpg`, blob);
         })
-      )
-    ).then(() => zip.generateAsync({ type: "blob" }));
+      ),
+      ...idsAudios.map((id) =>
+        obtenirAudio(id).then((blob) => {
+          if (blob) zip.file(`audios/${id}.webm`, blob);
+        })
+      ),
+    ]).then(() => zip.generateAsync({ type: "blob" }));
   });
 }
 
@@ -56,8 +74,18 @@ function _marquerExportReussi() {
   localStorage.setItem("fletchlog_dernier_export", new Date().toISOString());
 }
 
-function livrerExport(blob) {
-  const nomFichier = _nomFichierExport();
+// `estBackupComplet` (retour utilisateur, 2026-08-29) -- un export du
+// résultat d'un filtrage n'est PAS une sauvegarde complète du carnet :
+// le marquer comme tel ferait taire à tort le rappel périodique
+// (issue #18), qui suppose que "dernier export" veut dire "tout le
+// carnet est sauvegardé". `suffixeNomFichier` distingue aussi le nom
+// du fichier ("fletchlog-export-filtre-...zip") pour ne pas laisser
+// croire à une sauvegarde complète en le regardant après coup.
+function livrerExport(blob, { estBackupComplet = true, suffixeNomFichier } = {}) {
+  const nomFichier = _nomFichierExport(suffixeNomFichier);
+  const marquer = () => {
+    if (estBackupComplet) _marquerExportReussi();
+  };
   // Partage natif Android si possible (voir CLAUDE.md) -- repli sur un
   // lien de téléchargement classique sinon, ou si le partage échoue/est
   // annulé par l'utilisateur.
@@ -69,11 +97,11 @@ function livrerExport(blob) {
         .catch(() => {
           _telechargerBlob(blob, nomFichier);
         })
-        .then(_marquerExportReussi);
+        .then(marquer);
     }
   }
   _telechargerBlob(blob, nomFichier);
-  _marquerExportReussi();
+  marquer();
   return Promise.resolve();
 }
 
@@ -99,9 +127,18 @@ function importerSauvegarde(fichier) {
                 const fichierPhoto = zip.file(`photos/${id}.jpg`);
                 return fichierPhoto ? fichierPhoto.async("blob").then((blob) => restaurerPhoto(id, blob)) : null;
               });
-              const entreeRestauree = { ...entree, photoIds: idsPhotos };
+              // Note vocale (retour utilisateur, 2026-08-29) -- absente
+              // des sauvegardes exportées avant cette fonctionnalité,
+              // entree.audioId est alors simplement undefined/absent.
+              const restaurationAudio = entree.audioId
+                ? (() => {
+                    const fichierAudio = zip.file(`audios/${entree.audioId}.webm`);
+                    return fichierAudio ? fichierAudio.async("blob").then((blob) => restaurerAudio(entree.audioId, blob)) : null;
+                  })()
+                : null;
+              const entreeRestauree = { ...entree, photoIds: idsPhotos, audioId: entree.audioId ?? null };
               delete entreeRestauree.photoId;
-              return Promise.all(restaurationsPhotos)
+              return Promise.all([...restaurationsPhotos, restaurationAudio])
                 .then(() => restaurerEntree(entreeRestauree))
                 .then((ajoutee) => {
                   if (ajoutee) importees += 1;
