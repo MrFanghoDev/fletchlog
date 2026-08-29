@@ -2220,3 +2220,80 @@ resté ouvert derrière (z-index), titre généré = le lieu de cette seule
 entrée (pas "2 entrées"), retour au détail visible après fermeture du
 souvenir -- capture plein résolution du détail (bouton visible) et de
 la carte générée ("1 entrée") inspectées directement.
+
+## Toutes les photos d'une entrée en miniature sur la carte souvenir (retour utilisateur, 2026-08-30)
+
+Signalé juste après le point ci-dessus : le souvenir d'une seule
+entrée avec plusieurs photos (bouton "Souvenir" du détail, voir
+juste au-dessus) n'affichait que la photo vedette, jamais les autres
+-- alors qu'une entrée peut en avoir jusqu'à 6 (`MAX_PHOTOS`).
+
+**Cause : `_photosSupplementaires()` piochait une seule photo par
+AUTRE entrée** (`photoIds[0]`, voir sa section du 2026-08-25 plus
+haut), jamais les photos 2+ d'une même entrée -- comportement correct
+tant que le souvenir portait sur plusieurs entrées (chacune ne
+contribuant qu'une vignette), mais qui ne montrait jamais rien
+d'autre que la vedette dès qu'il n'y avait qu'UNE SEULE entrée
+illustrée, puisqu'il n'existe alors aucune "autre entrée" pour en
+fournir. Généralisé : la fonction parcourt maintenant TOUTES les
+photos de TOUTES les entrées illustrées (`flatMap` sur `photoIds`,
+plus seulement `photoIds[0]`), en excluant uniquement la photo
+vedette elle-même (par id de PHOTO, pas d'entrée) -- se réduit
+naturellement à l'ancien comportement quand chaque entrée n'a qu'une
+photo, et couvre en plus le cas multi-photos d'une même entrée.
+Aucun changement de plafond/troncature nécessaire :
+`SOUVENIR_VIGNETTE_MAX`/le badge "+N" existants gèrent déjà le
+surplus, quelle que soit sa provenance.
+
+**Vrai bug de régression découvert EN TESTANT ce correctif, pas
+directement lié à lui** -- le bouton 🖼️ de la barre de filtres
+(utilisé constamment tout au long de cette session, présent depuis
+le tout début de la carte souvenir) était **cassé depuis v0.23.0**
+(le ticket juste au-dessus, "Créer un souvenir depuis le détail
+d'une seule entrée"). Cause : `ouvrirSouvenir()` a gagné un paramètre
+optionnel `entreesPreselectionnees` dans ce ticket, mais son
+branchement existant --
+`document.getElementById("bouton-souvenir").addEventListener("click",
+ouvrirSouvenir)` (la fonction passée telle quelle, pas dans un
+wrapper) -- n'avait pas été relu à cette occasion. Un gestionnaire
+`click` reçoit l'événement en premier argument : `ouvrirSouvenir(evenementClic)`
+rendait alors `entreesPreselectionnees` **truthy** (un `MouseEvent`
+n'est jamais faux), donc `entreesPreselectionnees || entreesFiltrees()`
+utilisait l'ÉVÉNEMENT à la place des entrées filtrées -- la fonction
+plantait dès le premier appel de méthode de tableau dessus (un
+`MouseEvent` n'a pas de `.length`/`.flatMap`...), avant d'atteindre
+`selection.hidden = false` : l'écran de sélection restait bloqué
+caché indéfiniment, invisible en relisant juste le code (aucune
+erreur affichée à l'écran, juste rien qui se passe au clic). Le
+bouton "Souvenir" du détail, lui, était déjà correctement câblé en
+`() => ouvrirSouvenir([entree])` (un wrapper, l'événement jamais
+transmis) -- c'est justement la comparaison des deux branchements en
+creusant pourquoi un test à 2 entrées échouait qui a révélé l'écart.
+Corrigé en alignant l'ancien branchement sur le même patron :
+`() => ouvrirSouvenir()`.
+
+**Leçon retenue** : ajouter un paramètre à une fonction déjà posée
+telle quelle comme gestionnaire d'événement (`addEventListener("evt",
+maFonction)`, sans wrapper) est un piège classique -- l'événement
+DOM se glisse silencieusement dans ce nouveau paramètre. Réflexe à
+appliquer désormais : après avoir ajouté un paramètre à une fonction,
+`grep` tous ses points d'appel existants, pas seulement les nouveaux
+qu'on vient d'écrire -- un appel devenu incorrect par effet de bord
+ne saute pas aux yeux en relisant seulement la fonction modifiée.
+
+**Vérifié réellement** (Selenium, 2 entrées : "Entree A" avec 2
+photos JPEG de test -- rouge en couverture, vert en second -- et
+"Entree B" avec 1 photo bleue, générées via Pillow) :
+1. **Cas à une seule entrée** (bouton "Souvenir" du détail, "Entree
+   multi-photos" avec 3 photos rouge/vert/bleu) : `_photosSupplementaires()`
+   retourne bien 2 URLs (vert + bleu) là où elle en retournait 0
+   avant ce correctif -- capture plein résolution confirmant
+   visuellement les 2 vignettes sous la photo vedette rouge.
+2. **Cas à plusieurs entrées** (bouton 🖼️ de la barre de filtres,
+   confirmant au passage qu'il fonctionne de nouveau) : écran de
+   sélection bien affiché (`selectionHidden: false`, plus le
+   symptôme du bug ci-dessus), 2 entrées, vedette = "Entree B"
+   (photo bleue), 2 photos supplémentaires (rouge + vert, toutes
+   deux de "Entree A") -- capture confirmant visuellement les 3
+   couleurs présentes sur la carte (bleu en fond, rouge et vert en
+   vignettes), comportement multi-entrées inchangé par ailleurs.

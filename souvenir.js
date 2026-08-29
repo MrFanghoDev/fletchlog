@@ -114,15 +114,25 @@ function _entreeVedette(entrees, idVedetteManuel) {
   return avecPhoto[0] || null;
 }
 
-// Sorties supplémentaires avec photo (retour utilisateur, 2026-08-25) --
-// même ordre de tri que la vedette, la vedette elle-même exclue
-// (identifiée par id, pas par photo -- deux sorties distinctes
-// pourraient en théorie partager un id de photo si l'une a été
-// dupliquée via import/export, mais jamais le même id d'entrée).
+// Photos supplémentaires (retour utilisateur, 2026-08-25, étendu
+// 2026-08-30) -- initialement juste la première photo de chaque AUTRE
+// sortie ; étendu pour inclure aussi les photos 2+ de CHAQUE sortie
+// illustrée, y compris la vedette elle-même -- sans ça, un souvenir
+// généré depuis une seule entrée (bouton "Souvenir" du détail) ne
+// montrait jamais que sa photo vedette, ses éventuelles autres photos
+// n'ayant aucune "autre sortie" pour apparaître via l'ancien
+// comportement. Même ordre de tri que la vedette (via
+// _entreesAvecPhoto()), seule la photo vedette elle-même est exclue
+// (par id de PHOTO, pas d'entrée -- toutes les autres photos de la
+// sortie vedette apparaissent bien désormais).
 function _photosSupplementaires(entrees, entreeVedette) {
-  return _entreesAvecPhoto(entrees)
-    .filter((e) => e.id !== entreeVedette?.id)
-    .map((e) => photosCache[e.photoIds[0]]);
+  const idPhotoVedette = entreeVedette ? entreeVedette.photoIds[0] : null;
+  return _entreesAvecPhoto(entrees).flatMap((e) =>
+    (e.photoIds || [])
+      .filter((id) => id !== idPhotoVedette)
+      .map((id) => photosCache[id])
+      .filter(Boolean)
+  );
 }
 
 // Largeur fixe (1080, cohérent avec les tailles de police/marges déjà
@@ -733,7 +743,20 @@ function fermerSouvenir() {
   document.getElementById("souvenir-overlay").hidden = true;
 }
 
-document.getElementById("bouton-souvenir").addEventListener("click", ouvrirSouvenir);
+// () => ouvrirSouvenir() plutôt que ouvrirSouvenir directement (retour
+// utilisateur, 2026-08-30) -- vrai bug introduit en ajoutant le
+// paramètre optionnel entreesPreselectionnees : passé tel quel comme
+// gestionnaire d'événement, addEventListener("click", ouvrirSouvenir)
+// appelle ouvrirSouvenir(evenementClic), et un MouseEvent est truthy
+// -- `entreesPreselectionnees || entreesFiltrees()` utilisait alors
+// l'ÉVÉNEMENT à la place des entrées filtrées, faisant planter la
+// fonction dès le premier appel à une méthode de tableau dessus
+// (l'écran de sélection restait bloqué caché, jamais généré). Détecté
+// en testant le cas à 2 entrées (pas en relisant le code) -- ce
+// gestionnaire n'avait pas été retouché en ajoutant le paramètre,
+// seul le bouton "Souvenir" du détail (déjà en `() => ouvrirSouvenir([entree])`)
+// avait la bonne forme dès le départ.
+document.getElementById("bouton-souvenir").addEventListener("click", () => ouvrirSouvenir());
 document.getElementById("souvenir-fermer").addEventListener("click", fermerSouvenir);
 document.getElementById("souvenir-selection-valider").addEventListener("click", _genererEtAfficherSouvenir);
 
