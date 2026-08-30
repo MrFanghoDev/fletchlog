@@ -114,25 +114,33 @@ function _entreeVedette(entrees, idVedetteManuel) {
   return avecPhoto[0] || null;
 }
 
-// Photos supplémentaires (retour utilisateur, 2026-08-25, étendu
-// 2026-08-30) -- initialement juste la première photo de chaque AUTRE
-// sortie ; étendu pour inclure aussi les photos 2+ de CHAQUE sortie
-// illustrée, y compris la vedette elle-même -- sans ça, un souvenir
-// généré depuis une seule entrée (bouton "Souvenir" du détail) ne
-// montrait jamais que sa photo vedette, ses éventuelles autres photos
-// n'ayant aucune "autre sortie" pour apparaître via l'ancien
-// comportement. Même ordre de tri que la vedette (via
-// _entreesAvecPhoto()), seule la photo vedette elle-même est exclue
-// (par id de PHOTO, pas d'entrée -- toutes les autres photos de la
-// sortie vedette apparaissent bien désormais).
+// Photos supplémentaires (retour utilisateur, 2026-08-25 ; étendu puis
+// re-scindé en deux cas le 2026-08-30) -- deux comportements distincts
+// selon qu'une seule entrée est concernée ou plusieurs :
+// - Une seule entrée (souvenir depuis le détail) : TOUTES ses photos
+//   sauf la vedette -- sans ça, ses éventuelles autres photos ne
+//   s'affichaient jamais (aucune "autre entrée" pour les fournir via
+//   le comportement historique ci-dessous).
+// - Plusieurs entrées (souvenir d'un filtre) : une seule vignette par
+//   AUTRE entrée (`photoIds[0]`), comme à l'origine -- "une vignette =
+//   une sortie", pas un déversement de toutes les photos de chacune.
+//   Élargir aux photos 2+ ici avait semblé une généralisation propre
+//   du premier cas, mais casse ce principe pour le souvenir d'un
+//   filtre (retour utilisateur explicite : régression, pas amélioration).
 function _photosSupplementaires(entrees, entreeVedette) {
-  const idPhotoVedette = entreeVedette ? entreeVedette.photoIds[0] : null;
-  return _entreesAvecPhoto(entrees).flatMap((e) =>
-    (e.photoIds || [])
-      .filter((id) => id !== idPhotoVedette)
-      .map((id) => photosCache[id])
-      .filter(Boolean)
-  );
+  const entreesAvecPhoto = _entreesAvecPhoto(entrees);
+
+  if (entrees.length === 1) {
+    const idPhotoVedette = entreeVedette ? entreeVedette.photoIds[0] : null;
+    return entreesAvecPhoto.flatMap((e) =>
+      (e.photoIds || [])
+        .filter((id) => id !== idPhotoVedette)
+        .map((id) => photosCache[id])
+        .filter(Boolean)
+    );
+  }
+
+  return entreesAvecPhoto.filter((e) => e.id !== entreeVedette?.id).map((e) => photosCache[e.photoIds[0]]);
 }
 
 // Largeur fixe (1080, cohérent avec les tailles de police/marges déjà

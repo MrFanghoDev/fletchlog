@@ -2391,3 +2391,34 @@ un lieu différent) :
   manuel resterait prioritaire au final (appliqué par le CALLER,
   `_dessinerSouvenir()`), cette fonction ne calculant que le titre
   AUTO et le sous-titre.
+
+## Vignettes du souvenir d'un filtre : re-scindées de celles d'une seule entrée (retour utilisateur, 2026-08-30)
+
+Signalé : depuis la généralisation de `_photosSupplementaires()`
+(section "Toutes les photos d'une entrée en miniature" plus haut), le
+souvenir de PLUSIEURS entrées (bouton 🖼️ de la barre de filtres)
+montrait aussi toutes les photos de chaque entrée -- alors que le
+comportement souhaité là (et déjà en place avant ce changement) reste
+"une vignette = une sortie", pas un déversement de toutes les photos
+de chacune. Cette généralisation n'était voulue que pour le souvenir
+d'une SEULE entrée (bouton "Souvenir" du détail), où elle corrige un
+vrai manque -- appliquée aussi au cas multi-entrées, elle produit
+l'effet inverse de celui recherché.
+
+`_photosSupplementaires()` distingue maintenant explicitement les deux
+cas via `entrees.length === 1` : une seule entrée -> toutes ses photos
+sauf la vedette (comportement du 2026-08-30, inchangé) ; plusieurs
+entrées -> une seule vignette par AUTRE entrée (`photoIds[0]`,
+comportement d'origine du 2026-08-25, restauré). Documente aussi
+explicitement dans le commentaire que la généralisation avait semblé
+propre à l'époque mais cassait ce principe pour le cas filtre --
+distinction délibérée à garder, pas à re-fusionner en une seule
+formule "plus simple" plus tard.
+
+**Vérifié réellement** (Selenium, "Entree A" 2 photos + "Entree B" 1
+photo) : souvenir multi-entrées (bouton 🖼️) -> 1 seule photo
+supplémentaire (celle de l'autre entrée, pas les 2 de l'entrée A en
+plus de la vedette) ; souvenir d'"Entree A" seule (bouton du détail,
+2 photos) -> 1 photo supplémentaire (sa propre 2e photo) -- inchangé,
+confirmant que le correctif ne touche que le cas multi-entrées comme
+prévu.
