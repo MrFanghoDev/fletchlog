@@ -1254,6 +1254,21 @@ function fermerDetail() {
   idEnEdition = null;
 }
 
+// Swipe entre entrées sur l'écran de détail (retour utilisateur,
+// 2026-08-30) -- passe à l'entrée suivante/précédente dans le même
+// ordre que la vue Liste (trierEntrees(entreesFiltrees()), pas un état
+// de navigation propre). Sans effet en bout de liste (pas de
+// bouclage) -- une liste d'entrées datées n'a pas de "suivante"
+// logique après la dernière, contrairement à un carrousel de photos.
+function naviguerDetail(direction) {
+  const ordre = trierEntrees(entreesFiltrees());
+  const indexActuel = ordre.findIndex((e) => e.id === idEnEdition);
+  if (indexActuel === -1) return;
+  const nouvelIndex = indexActuel + direction;
+  if (nouvelIndex < 0 || nouvelIndex >= ordre.length) return;
+  afficherDetail(ordre[nouvelIndex].id);
+}
+
 // ---- Formulaire d'ajout/édition ------------------------------------
 
 function ouvrirFormulaire(id) {
@@ -1493,6 +1508,44 @@ function initFormulaire() {
     if (!entree) return;
     const urls = (entree.photoIds || []).map((photoId) => photosCache[photoId]);
     ouvrirLightbox(urls, Number(vignette.dataset.index));
+  });
+
+  // Swipe entre entrées (voir naviguerDetail()) -- geste simple
+  // (touchstart/touchend, seuil 40px, même convention que le premier
+  // swipe de la lightbox photo avant son carrousel à 3 volets) plutôt
+  // qu'un vrai carrousel visuel : contrairement à une image de taille
+  // fixe, le contenu du détail est un panneau HTML dynamique (galerie,
+  // lecteur audio, hauteur variable) -- animer un glissement en direct
+  // dessus n'apporterait pas grand-chose pour la complexité en plus.
+  // Pas de preventDefault -- le défilement vertical natif du panneau
+  // (contenu potentiellement plus long que l'écran) doit continuer à
+  // fonctionner normalement, seul touchend décide après coup si le
+  // geste était plutôt horizontal. Ignoré si le geste démarre dans
+  // #detail-galerie : ce conteneur a son propre défilement horizontal
+  // natif (vignettes photo), qu'un swipe de navigation ne doit pas
+  // intercepter.
+  let detailToucheDepartX = null;
+  let detailToucheDepartY = null;
+  let detailToucheDepartDansGalerie = false;
+  const detailOverlay = document.getElementById("detail-overlay");
+  detailOverlay.addEventListener("touchstart", (evenement) => {
+    if (evenement.touches.length !== 1) return;
+    detailToucheDepartX = evenement.touches[0].clientX;
+    detailToucheDepartY = evenement.touches[0].clientY;
+    detailToucheDepartDansGalerie = !!evenement.target.closest("#detail-galerie");
+  });
+  detailOverlay.addEventListener("touchend", (evenement) => {
+    if (detailToucheDepartX === null) return;
+    const departX = detailToucheDepartX;
+    const departY = detailToucheDepartY;
+    const dansGalerie = detailToucheDepartDansGalerie;
+    detailToucheDepartX = null;
+    if (dansGalerie || evenement.changedTouches.length !== 1) return;
+    const deltaX = evenement.changedTouches[0].clientX - departX;
+    const deltaY = Math.abs(evenement.changedTouches[0].clientY - departY);
+    if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > deltaY) {
+      naviguerDetail(deltaX < 0 ? 1 : -1);
+    }
   });
   document.getElementById("form-annuler").addEventListener("click", fermerFormulaire);
   document.getElementById("form-supprimer").addEventListener("click", supprimerDepuisFormulaire);

@@ -2422,3 +2422,53 @@ plus de la vedette) ; souvenir d'"Entree A" seule (bouton du détail,
 2 photos) -> 1 photo supplémentaire (sa propre 2e photo) -- inchangé,
 confirmant que le correctif ne touche que le cas multi-entrées comme
 prévu.
+
+## Swipe entre entrées sur l'écran de détail (retour utilisateur, 2026-08-30)
+
+Demandé : sur l'écran de détail (lecture seule, pas le formulaire
+d'édition), un swipe horizontal pour passer à l'entrée suivante/
+précédente.
+
+**Geste simple (touchstart/touchend, seuil 40px), pas un vrai
+carrousel visuel comme la lightbox photo** -- choix délibéré, pas une
+version au rabais : la lightbox anime un glissement en direct parce
+que ses volets sont des images de taille fixe, faciles à faire
+"coller" au doigt. Le détail est un panneau HTML dynamique (galerie,
+lecteur audio, hauteur variable selon le contenu) -- animer un
+glissement dessus demanderait de mesurer/dupliquer tout ce panneau
+pour un gain visuel limité ici. Même seuil (40px) que le tout premier
+swipe de la lightbox avant son passage au carrousel à 3 volets (voir
+plus haut) -- ce projet avait déjà fait ce compromis une fois pour une
+raison similaire.
+
+`naviguerDetail(direction)` -- ordre identique à la vue Liste
+(`trierEntrees(entreesFiltrees())`, pas un état de navigation propre
+à construire) ; retrouve l'index de `idEnEdition` dans cet ordre,
+appelle `afficherDetail()` sur l'entrée adjacente. **Pas de bouclage**
+en bout de liste (contrairement à la lightbox, qui boucle) -- une
+liste d'entrées datées n'a pas de "suivante" logique après la
+dernière, un bouclage y serait déroutant plutôt que pratique.
+
+**Pas de `preventDefault()`** sur les écouteurs tactiles -- le
+défilement vertical natif du panneau de détail (contenu potentiellement
+plus long que l'écran) doit continuer à fonctionner normalement ;
+seul `touchend` décide après coup si le geste était plutôt horizontal
+(`Math.abs(deltaX) > 40 && Math.abs(deltaX) > deltaY`) avant de
+naviguer. **Geste ignoré s'il démarre dans `#detail-galerie`**
+(vignettes photo, défilement horizontal natif) -- sinon un utilisateur
+qui fait défiler les photos d'une entrée à plusieurs photos changerait
+d'entrée par erreur ; détecté au `touchstart` via
+`evenement.target.closest("#detail-galerie")`.
+
+**Vérifié réellement** (Selenium, `TouchEvent`/`Touch` synthétiques --
+logique d'état, pas un rendu visuel, donc vérifiable sans geste
+tactile réel, même principe que la vérification du carrousel de la
+lightbox) : 3 entrées "Alpha"/"Beta"/"Gamma", tri "Titre (A→Z)" pour
+un ordre prévisible -- swipe gauche depuis "Beta" -> "Gamma" (suivante),
+swipe droit depuis "Gamma" -> "Beta" -> "Alpha" (précédentes), swipe
+droit supplémentaire en tête de liste -> reste sur "Alpha" (pas de
+bouclage confirmé), petit mouvement de 15px (sous le seuil de 40px)
+-> aucun changement. Scénario séparé (entrée réelle avec une photo) :
+un swipe démarrant sur une vignette de `#detail-galerie` -> aucune
+navigation déclenchée, confirmant que le défilement de la galerie
+photo n'est pas intercepté.
