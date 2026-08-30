@@ -1180,6 +1180,78 @@ function validerPickerPosition() {
   fermerPickerPosition();
 }
 
+// ---- Téléchargement/partage de photos seules (retour utilisateur,
+// 2026-08-30) -- distinct de l'export complet (export-import.js,
+// entrees.json + photos + audios, pensé comme une sauvegarde) : ici,
+// juste récupérer des photos, à l'une de 4 portées (totale, filtrée,
+// une entrée, une seule photo -- voir les boutons dans initFormulaire()
+// et ouvrirLightbox()). Web Share API (fichiers directs, l'utilisateur
+// choisit "Enregistrer dans Photos"/toute appli -- pas de zip à
+// décompresser) quand supportée, repli sur un zip "photos seules"
+// (aucun entrees.json dedans, contrairement à exporterSauvegarde())
+// sinon, ou sur un simple fichier .jpg s'il n'y a qu'une seule photo.
+// Même patron que livrerExport() dans export-import.js pour le choix
+// partage/téléchargement, réutilise _telechargerBlob() de ce fichier.
+
+function _nomFichierPhoto(index, total) {
+  const date = new Date().toISOString().slice(0, 10);
+  return total > 1 ? `fletchlog-photo-${date}-${index + 1}.jpg` : `fletchlog-photo-${date}.jpg`;
+}
+
+async function _partagerOuTelechargerBlobsPhotos(blobs) {
+  const blobsValides = blobs.filter(Boolean);
+  if (blobsValides.length === 0) {
+    afficherToast(t(currentLanguage, "photosAucunePhoto"));
+    return;
+  }
+  const fichiers = blobsValides.map((blob, i) => new File([blob], _nomFichierPhoto(i, blobsValides.length), { type: "image/jpeg" }));
+
+  if (window.File && navigator.canShare && navigator.canShare({ files: fichiers })) {
+    try {
+      await navigator.share({ files: fichiers });
+      return;
+    } catch (erreur) {
+      // Partage annulé ou échoué (ex. trop de fichiers pour la cible
+      // choisie) -- repli sur le téléchargement direct ci-dessous,
+      // même principe que livrerExport().
+    }
+  }
+
+  if (fichiers.length === 1) {
+    _telechargerBlob(fichiers[0], fichiers[0].name);
+    return;
+  }
+
+  const zip = new JSZip();
+  fichiers.forEach((fichier) => zip.file(fichier.name, fichier));
+  const blobZip = await zip.generateAsync({ type: "blob" });
+  _telechargerBlob(blobZip, `fletchlog-photos-${new Date().toISOString().slice(0, 10)}.zip`);
+}
+
+// Portées totale/filtrée/entrée -- toujours à partir d'ids déjà
+// stockés (obtenirPhoto(), store "photos"), dédupliqués (une même
+// photo ne devrait jamais être référencée par deux entrées, mais rien
+// ne l'empêche techniquement après un import).
+function partagerOuTelechargerPhotosParId(photoIds) {
+  const idsUniques = [...new Set(photoIds)];
+  if (idsUniques.length === 0) {
+    afficherToast(t(currentLanguage, "photosAucunePhoto"));
+    return Promise.resolve();
+  }
+  return Promise.all(idsUniques.map((id) => obtenirPhoto(id))).then(_partagerOuTelechargerBlobsPhotos);
+}
+
+// Portée "une seule photo" (bouton superposé à la lightbox) -- l'URL
+// déjà résolue (photosCache, pas un id) est refetchée en Blob : une
+// URL blob: est fetchable comme n'importe quelle autre (contrairement
+// à ce qu'on pourrait croire), pas besoin de retrouver le photoId
+// d'origine pour ça.
+function partagerOuTelechargerPhotoUnique(url) {
+  return fetch(url)
+    .then((reponse) => reponse.blob())
+    .then((blob) => _partagerOuTelechargerBlobsPhotos([blob]));
+}
+
 // ---- Détail de sortie (retour utilisateur -- mode non éditable par
 // défaut) -- vue de consultation, ouverte au tap d'une carte Liste ou
 // de l'aperçu Carte. "Modifier" ouvre ouvrirFormulaire() par-dessus.
@@ -1201,6 +1273,9 @@ function afficherDetail(id) {
   const idsPhotos = entree.photoIds || [];
   const galerie = document.getElementById("detail-galerie");
   galerie.hidden = idsPhotos.length === 0;
+  // Même condition que la galerie -- rien à télécharger sinon (retour
+  // utilisateur, 2026-08-30).
+  document.getElementById("detail-photos").hidden = idsPhotos.length === 0;
   galerie.innerHTML = idsPhotos
     .map((photoId, index) => {
       const url = photosCache[photoId];
@@ -1501,6 +1576,23 @@ function initFormulaire() {
     const entree = entreesActuelles.find((e) => e.id === idEnEdition);
     if (entree) ouvrirSouvenir([entree]);
   });
+  // Photos de cette entrée (portée "entrée", retour utilisateur,
+  // 2026-08-30) -- voir partagerOuTelechargerPhotosParId() dans app.js.
+  document.getElementById("detail-photos").addEventListener("click", () => {
+    const entree = entreesActuelles.find((e) => e.id === idEnEdition);
+    if (!entree || !(entree.photoIds || []).length) return;
+    const bouton = document.getElementById("detail-photos");
+    bouton.disabled = true;
+    afficherToast(t(currentLanguage, "photosEnCours"));
+    partagerOuTelechargerPhotosParId(entree.photoIds)
+      .catch((erreur) => {
+        console.warn("Échec du téléchargement des photos de l'entrée :", erreur);
+        afficherToast(t(currentLanguage, "photosErreur"));
+      })
+      .finally(() => {
+        bouton.disabled = false;
+      });
+  });
   document.getElementById("detail-galerie").addEventListener("click", (evenement) => {
     const vignette = evenement.target.closest(".detail-vignette");
     if (!vignette) return;
@@ -1601,6 +1693,26 @@ function initFormulaire() {
     }
   });
   document.getElementById("lightbox-fermer").addEventListener("click", fermerLightbox);
+  // Photo affichée (portée "image", retour utilisateur, 2026-08-30) --
+  // voir partagerOuTelechargerPhotoUnique() dans app.js. Corrige au
+  // passage le .txt signalé sur le geste natif "enregistrer l'image"
+  // (URL blob: sans nom explicite) en proposant un vrai téléchargement
+  // app-contrôlé, toujours nommé correctement.
+  document.getElementById("lightbox-telecharger").addEventListener("click", () => {
+    const url = lightboxUrls[lightboxIndex];
+    if (!url) return;
+    const bouton = document.getElementById("lightbox-telecharger");
+    bouton.disabled = true;
+    afficherToast(t(currentLanguage, "photosEnCours"));
+    partagerOuTelechargerPhotoUnique(url)
+      .catch((erreur) => {
+        console.warn("Échec du téléchargement de la photo :", erreur);
+        afficherToast(t(currentLanguage, "photosErreur"));
+      })
+      .finally(() => {
+        bouton.disabled = false;
+      });
+  });
   document.getElementById("lightbox-prev").addEventListener("click", lightboxPrecedente);
   document.getElementById("lightbox-next").addEventListener("click", lightboxSuivante);
   document.getElementById("lightbox-overlay").addEventListener("click", (evenement) => {
@@ -1735,6 +1847,49 @@ function initFormulaire() {
       .catch((erreur) => {
         console.warn("Échec de l'export filtré :", erreur);
         afficherToast(t(currentLanguage, "exportErreur"));
+      })
+      .finally(() => {
+        bouton.disabled = false;
+      });
+  });
+
+  // Photos seules, portée "totale" (retour utilisateur, 2026-08-30) --
+  // distinct de l'export complet juste au-dessus (voir
+  // partagerOuTelechargerPhotosParId() dans app.js).
+  document.getElementById("bouton-photos-rapide").addEventListener("click", () => {
+    const idsPhotos = [...new Set(entreesActuelles.flatMap((e) => e.photoIds || []))];
+    if (idsPhotos.length === 0) {
+      afficherToast(t(currentLanguage, "photosAucunePhoto"));
+      return;
+    }
+    const bouton = document.getElementById("bouton-photos-rapide");
+    bouton.disabled = true;
+    afficherToast(t(currentLanguage, "photosEnCours"));
+    partagerOuTelechargerPhotosParId(idsPhotos)
+      .catch((erreur) => {
+        console.warn("Échec du téléchargement des photos :", erreur);
+        afficherToast(t(currentLanguage, "photosErreur"));
+      })
+      .finally(() => {
+        bouton.disabled = false;
+      });
+  });
+
+  // Photos seules, portée "filtrée" (retour utilisateur, 2026-08-30) --
+  // distinct de l'export filtré juste au-dessus.
+  document.getElementById("bouton-photos-filtre").addEventListener("click", () => {
+    const idsPhotos = [...new Set(entreesFiltrees().flatMap((e) => e.photoIds || []))];
+    if (idsPhotos.length === 0) {
+      afficherToast(t(currentLanguage, "photosAucunePhoto"));
+      return;
+    }
+    const bouton = document.getElementById("bouton-photos-filtre");
+    bouton.disabled = true;
+    afficherToast(t(currentLanguage, "photosEnCours"));
+    partagerOuTelechargerPhotosParId(idsPhotos)
+      .catch((erreur) => {
+        console.warn("Échec du téléchargement des photos filtrées :", erreur);
+        afficherToast(t(currentLanguage, "photosErreur"));
       })
       .finally(() => {
         bouton.disabled = false;

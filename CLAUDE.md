@@ -2472,3 +2472,100 @@ bouclage confirmé), petit mouvement de 15px (sous le seuil de 40px)
 un swipe démarrant sur une vignette de `#detail-galerie` -> aucune
 navigation déclenchée, confirmant que le défilement de la galerie
 photo n'est pas intercepté.
+
+## Téléchargement/partage des photos seules, 4 portées (retour utilisateur, 2026-08-30)
+
+Deux demandes liées dans le même message :
+
+1. **Bug signalé** : télécharger une photo d'une entrée produisait un
+   fichier `.txt`. Investigation avant de coder -- FletchLog n'a
+   **aucun** bouton de téléchargement pour une photo isolée nulle
+   part dans le code (`grep` sur toute création de lien `<a
+   download>` : seulement `export-import.js`/`souvenir.js`, jamais
+   pour une photo seule). Le `.txt` vient donc du geste natif du
+   navigateur ("Enregistrer l'image", appui long sur un `<img>` dont
+   le `src` est une URL `blob:`) -- ce geste doit deviner
+   nom/extension sans indice explicite, et peut mal deviner sur ce
+   type d'URL. **Non reproductible dans cet environnement** (pas de
+   vrai geste tactile/menu contextuel natif simulable en Selenium
+   headless) -- signalé honnêtement plutôt que supposé vérifié. Corrigé
+   par la voie standard pour ce genre de problème : un vrai bouton de
+   téléchargement app-contrôlé, toujours nommé/typé explicitement,
+   qui contourne ce geste natif plutôt que de chercher à le réparer
+   (impossible depuis le JS de la page de toute façon).
+
+2. **Demandé en plus** : un moyen simple de télécharger plusieurs
+   photos à la fois, à différentes portées. Clarifié avec
+   l'utilisateur avant de coder (deux allers-retours) :
+   - **Zip pas obligatoire** -- l'app utilise déjà l'API de partage
+     native (`navigator.share`) ailleurs (export, souvenir) ; pour
+     plusieurs photos, partager les FICHIERS IMAGE DIRECTEMENT (pas
+     un zip) permet à Android de proposer "Enregistrer dans
+     Photos"/toute appli, sans étape de décompression -- plus direct
+     qu'un zip quand c'est supporté. Zip gardé uniquement comme repli
+     (même principe que `livrerExport()`).
+   - **4 portées, placement proposé par l'utilisateur** : totale
+     (bouton `#bouton-photos-rapide`, barre du bas à côté d'Exporter),
+     filtrée (`#bouton-photos-filtre`, barre de filtres à côté de
+     🖼️/📤), une entrée (`#detail-photos`, écran de détail), une
+     seule photo (`#lightbox-telecharger`, superposé sur l'image dans
+     la lightbox -- règle au passage le bug du point 1).
+
+**Distinct de l'export complet** (`export-import.js`, JSON + photos +
+audios, pensé comme sauvegarde) -- ici, jamais de JSON, juste des
+fichiers image. Nouvelles fonctions dans `app.js` (pas
+`export-import.js`, qui reste dédié au format "sauvegarde") :
+- `_partagerOuTelechargerBlobsPhotos(blobs)` -- cœur commun aux 4
+  portées : `navigator.canShare({files})` + `navigator.share()` si
+  supporté (fichiers `.jpg` nommés `fletchlog-photo-<date>[-N].jpg`,
+  `type: "image/jpeg"`), sinon téléchargement direct du seul fichier
+  s'il n'y en a qu'un, sinon un zip "photos seules" (`JSZip`, aucun
+  `entrees.json` dedans -- juste les `.jpg`, contrairement à
+  `exporterSauvegarde()`) via `_telechargerBlob()` (réutilisée telle
+  quelle depuis `export-import.js`, déjà chargé avant `app.js`).
+- `partagerOuTelechargerPhotosParId(photoIds)` -- portées totale/
+  filtrée/entrée, ids dédupliqués, résolus via `obtenirPhoto()`.
+- `partagerOuTelechargerPhotoUnique(url)` -- portée image (lightbox) :
+  l'URL déjà résolue (`photosCache`, pas un id) est refetchée en Blob
+  (`fetch("blob:...")` fonctionne comme n'importe quelle autre URL,
+  pas besoin de retrouver le `photoId` d'origine).
+
+`#detail-photos` masqué par la même condition que `#detail-galerie`
+(pas de photo -> rien à télécharger) -- `.detail-header` passe de
+`justify-content: flex-end` à `space-between` pour l'accueillir dans
+le coin opposé à `#detail-fermer`, toujours visible (`position:
+sticky`) même si le contenu du détail défile. `#lightbox-telecharger`
+même principe, coin opposé à `.lightbox-fermer` dans l'overlay plein
+écran. Icône "galerie" (`ICONE_GALERIE`, déjà utilisée pour "Choisir
+depuis la galerie" dans le formulaire) pour le bouton total de la
+barre du bas -- reste associée aux photos plutôt qu'à l'export/
+sauvegarde malgré le même style de bouton que "Exporter" juste à côté.
+Emoji 📸 pour le bouton filtré (cohérent avec 🖼️/📤 déjà sur la même
+ligne). Icône flèche-vers-le-bas (même tracé que le bouton Export)
+pour les boutons détail/lightbox.
+
+**Vérifié réellement** (Selenium, entrée à 3 photos JPEG de couleurs
+distinctes) :
+- Les 4 boutons sont bien présents ; `#detail-photos` masqué sur une
+  entrée sans photo, visible dès qu'elle en a.
+- **Repli zip** (sans `navigator.share`, cas réel de Chromium headless
+  sans mock) : zip généré (`fletchlog-photos-<date>.zip`,
+  `application/zip`), contenu inspecté via `JSZip.loadAsync` -- exactement
+  3 fichiers `.jpg`, **aucun `entrees.json`** (confirme la distinction
+  avec l'export complet).
+- **Portée "image"** (1 seule photo) : téléchargement direct d'un
+  `.jpg` (`type: "image/jpeg"`) -- pas de zip pour une seule photo,
+  et confirme au passage le correctif du bug initial (nom/type
+  toujours corrects, plus de `.txt`).
+- **`navigator.share`/`canShare` simulés disponibles** (`navigator.share`/
+  `canShare` remplacés par des fonctions de test) : `partagerOuTelechargerPhotosParId()`
+  appelle bien `navigator.share()` avec 3 fichiers `.jpg` correctement
+  nommés/typés, et **ne télécharge rien** (le partage a suffi) --
+  confirme que le chemin "partage natif" est bien emprunté en priorité
+  quand disponible, pas seulement le repli zip.
+- Capture d'écran (390px, gabarit téléphone) des 3 nouveaux
+  emplacements : barre du bas (4 boutons, pas de débordement), barre
+  de filtres (3 boutons ronds + 2 champs date, tient sans
+  chevauchement), écran de détail (bouton coin haut-gauche, symétrique
+  du ✕), lightbox (mêmes deux boutons superposés à la photo,
+  coins opposés) -- tout lisible et bien positionné.

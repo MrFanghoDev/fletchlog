@@ -229,11 +229,21 @@
      même z-index que .modal-overlay (ci-dessous). */
   .detail-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 20; display: flex; flex-direction: column; overflow-y: auto; }
   .detail-overlay[hidden] { display: none; }
-  .detail-header { position: sticky; top: 0; display: flex; justify-content: flex-end; padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 0; background: var(--bg); }
+  .detail-header { position: sticky; top: 0; display: flex; justify-content: space-between; padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 0; background: var(--bg); }
   .detail-fermer {
     width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); color: var(--text);
     border: none; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
+  /* Téléchargement des photos de l'entrée (retour utilisateur,
+     2026-08-30) -- même gabarit que .detail-fermer, dans le
+     coin opposé (space-between sur .detail-header ci-dessus). Masqué
+     si l'entrée n'a pas de photo (voir afficherDetail() dans app.js),
+     même condition que .detail-galerie. */
+  .detail-photos {
+    width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); color: var(--text);
+    border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  }
+  .detail-photos[hidden] { display: none; }
   .detail-galerie { display: flex; gap: 8px; overflow-x: auto; padding: 14px 16px 0; }
   .detail-galerie[hidden] { display: none; }
   .detail-vignette { width: 96px; height: 96px; border-radius: 12px; background: var(--surface-2); flex-shrink: 0; overflow: hidden; cursor: pointer; }
@@ -411,6 +421,18 @@
     width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.12); color: #fff;
     border: none; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; cursor: pointer;
   }
+  /* Téléchargement de la photo affichée (retour utilisateur,
+     2026-08-30) -- coin opposé à .lightbox-fermer, même gabarit. Voir
+     partagerOuTelechargerPhotoUnique() dans app.js -- corrige au
+     passage un vrai bug signalé (enregistrer l'image via le geste
+     natif du navigateur produisait un fichier .txt sur une URL
+     blob: sans nom explicite ; un téléchargement app-contrôlé avec un
+     nom de fichier .jpg explicite contourne ce problème). */
+  .lightbox-telecharger {
+    position: absolute; top: calc(env(safe-area-inset-top, 0px) + 14px); left: 16px;
+    width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,0.12); color: #fff;
+    border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+  }
   .lightbox-compteur {
     position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); left: 50%; transform: translateX(-50%);
     color: rgba(255,255,255,0.85); font-size: 0.8rem; font-variant-numeric: tabular-nums;
@@ -581,6 +603,11 @@
              (pas spécifique à la carte souvenir malgré son nom), même
              réutilisation qu'ailleurs dans cette barre. -->
         <button type="button" class="bouton-souvenir" id="bouton-export-filtre" data-i18n-aria-label="exportFiltreBouton" aria-label="Exporter le résultat filtré">📤</button>
+        <!-- Photos seules du résultat filtré (retour utilisateur,
+             2026-08-30) -- distinct de l'export juste à côté (celui-ci
+             inclut aussi entrees.json/audios, voir
+             partagerOuTelechargerPhotosParId() dans app.js). -->
+        <button type="button" class="bouton-souvenir" id="bouton-photos-filtre" data-i18n-aria-label="photosBoutonFiltre" aria-label="Télécharger les photos filtrées">📸</button>
       </div>
     </div>
 
@@ -623,6 +650,9 @@
 
   <div class="detail-overlay" id="detail-overlay" hidden>
     <div class="detail-header">
+      <button type="button" class="detail-photos" id="detail-photos" data-i18n-aria-label="photosBoutonEntree" aria-label="Télécharger les photos de cette entrée" hidden>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1"/></svg>
+      </button>
       <button type="button" class="detail-fermer" id="detail-fermer" data-i18n-aria-label="lightboxFermer" aria-label="Fermer">✕</button>
     </div>
     <div class="detail-galerie" id="detail-galerie" hidden></div>
@@ -755,6 +785,9 @@
   </div>
 
   <div class="lightbox-overlay" id="lightbox-overlay" hidden>
+    <button type="button" class="lightbox-telecharger" id="lightbox-telecharger" data-i18n-aria-label="photosBoutonImage" aria-label="Télécharger cette photo">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1"/></svg>
+    </button>
     <button type="button" class="lightbox-fermer" id="lightbox-fermer" data-i18n-aria-label="lightboxFermer" aria-label="Fermer">✕</button>
     <div class="lightbox-track" id="lightbox-track">
       <div class="lightbox-slide"><img class="lightbox-img" id="lightbox-img-prev" alt=""></div>
@@ -804,6 +837,16 @@
     <button type="button" class="nav-btn nav-btn-action" id="bouton-export-rapide" data-i18n-aria-label="exportBouton" aria-label="Exporter mon carnet">
       <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 18v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-1"/></svg>
       <span data-i18n="navExporter">Exporter</span>
+    </button>
+    <!-- Téléchargement/partage des photos seules, portée "totale"
+         (retour utilisateur, 2026-08-30) -- distinct de l'export
+         complet juste à côté (voir partagerOuTelechargerPhotosParId()
+         dans app.js). Même icône "galerie" que le bouton "Choisir
+         depuis la galerie" du formulaire (ICONE_GALERIE), pour rester
+         associée aux photos plutôt qu'à l'export/sauvegarde. -->
+    <button type="button" class="nav-btn nav-btn-action" id="bouton-photos-rapide" data-i18n-aria-label="photosBoutonTotal" aria-label="Télécharger toutes les photos">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-5-5-9 9"/></svg>
+      <span data-i18n="navPhotos">Photos</span>
     </button>
   </nav>
 
